@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+npm-cache/
+
+# Build output
+dist/
+dist-ssr/
+*.local
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+
+# Secrets & Keys
+*.key
+*.pem
+*credential*
+*secret*
+*.md.key
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Temp
+.tmp/
+
+# Supabase
+.supabase/
+
+.vercel

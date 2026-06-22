@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script>
+      (function() {
+        // Redirection logic
+        if (typeof window !== "undefined" && !window.location.hostname.includes("localhost")) {
+          var redirected = false;
+          var targetUrl = window.location.href;
+          if (window.location.protocol === "http:") {
+            targetUrl = targetUrl.replace("http:", "https:");
+            redirected = true;
+          }
+          if (window.location.hostname === "zappy.ind.in") {
+            targetUrl = targetUrl.replace("zappy.ind.in", "www.zappy.ind.in");
+            redirected = true;
+          }
+          if (redirected) {
+            window.location.replace(targetUrl);
+            return;
+          }
+        }
+
+        // Failsafe for cached script chunk loading errors
+        function clearCachesAndReload() {
+          var lastReload = sessionStorage.getItem('zappy_failsafe_reload');
+          var now = Date.now();
+          if (lastReload && (now - parseInt(lastReload) < 15000)) {
+            console.error('Failsafe triggered too recently, skipping reload to prevent loop.');
+            return;
+          }
+          sessionStorage.setItem('zappy_failsafe_reload', now);
+          console.warn("Zappy Failsafe triggered: clearing service workers and cache storage...");
+          
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+              var unregisterPromises = [];
+              for (var i = 0; i < regs.length; i++) {
+                unregisterPromises.push(regs[i].unregister());
+              }
+              Promise.all(unregisterPromises).then(function() {
+                evictCachesAndReload();
+              }).catch(function() {
+                evictCachesAndReload();
+              });
+            });
+          } else {
+            evictCachesAndReload();
+          }
+        }
+
+        function evictCachesAndReload() {
+          if (window.caches) {
+            caches.keys().then(function(keys) {
+              Promise.all(keys.map(function(k) { return caches.delete(k); })).then(function() {
+                // Remove aggressive automatic reload, let user reload or gracefully fallback
+                console.warn('Caches cleared. A manual reload may be required.');
+              }).catch(function() {
+                console.warn('Caches cleared (with error).');
+              });
+            });
+          }
+        }
+
+        var CURRENT_BUILD = Date.now();
+
+        window.addEventListener('error', function(e) {
+          var target = e.target;
+          if (target && (target.tagName === 'SCRIPT' || target.tagName === 'LINK')) {
+            var url = target.src || target.href;
+            if (url && (url.indexOf('/assets/') > -1 || url.indexOf('index-') > -1)) {
+              clearCachesAndReload();
+            }
+          }
+        }, true);
+
+        // Catch runtime errors related to failed module parsing (e.g. text/html MIME type errors)
+        window.addEventListener('error', function(e) {
+          var msg = e.message || '';
+          if (msg.indexOf('Expected a JavaScript-or-Wasm') > -1 || 
+              msg.indexOf('MIME type') > -1 || 
+              msg.indexOf('Unexpected token') > -1 ||
+              msg.indexOf('SyntaxError') > -1) {
+            clearCachesAndReload();
+          }
+        });
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ZAPPY — The Restaurant Operating System</title>
+    <meta name="description" content="One platform for menus, orders, billing, kitchen workflows, analytics, and customer experiences. The complete Restaurant Operating System." />
+    <meta name="author" content="ZAPPY" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Zappy" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+    <link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet" />
+
+    <meta name="keywords" content="digital menu, QR code menu, restaurant ordering system, smart menu, contactless dining" />
+    <link rel="canonical" href="https://www.zappy.ind.in/" />
+    
+    <meta property="og:title" content="ZAPPY — The Restaurant Operating System" />
+    <meta property="og:description" content="One platform for menus, orders, billing, kitchen workflows, analytics, and customer experiences." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://www.zappy.ind.in/" />
+    <meta property="og:image" content="https://www.zappy.ind.in/og-image.png" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@zappyscan" />
+    <meta name="twitter:title" content="ZAPPY — The Restaurant Operating System" />
+    <meta name="twitter:description" content="One platform for menus, orders, billing, kitchen workflows, analytics, and customer experiences." />
+    <meta name="twitter:image" content="https://www.zappy.ind.in/og-image.png" />
+
+    <!-- JSON-LD Schema Markup -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Zappy",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "WebBrowser",
+      "description": "The complete Restaurant Operating System — menus, orders, billing, kitchen workflows, analytics, and customer experiences in one platform.",
+      "url": "https://www.zappy.ind.in/",
+      "offers": {
+        "@type": "AggregateOffer",
+        "lowPrice": "0",
+        "highPrice": "2999",
+        "priceCurrency": "INR",
+        "offerCount": "3"
+      }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Zappy",
+      "url": "https://www.zappy.ind.in/",
+      "logo": "https://www.zappy.ind.in/og-image.png",
+      "sameAs": [],
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer service",
+        "availableLanguage": ["English", "Hindi"]
+      }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Do my customers need to download an app?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No! ZAPPY works entirely in the browser. Customers simply scan the QR code and the menu opens instantly — no downloads, no sign-ups required."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How long does it take to set up?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "You can be up and running in under 15 minutes. Just create your account, add your menu items, configure your tables, and print QR codes."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I customize the menu design for my brand?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Absolutely. You can set your logo, brand colors, fonts, cover images, and even a custom splash screen animation for your restaurant."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does it work with my existing POS or printer?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "ZAPPY supports Bluetooth and USB thermal printers (ESC/POS compatible). POS integration is available on the Enterprise plan."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is my data secure?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. We use enterprise-grade encryption, row-level security policies, and role-based access control to keep your restaurant data safe."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I manage multiple restaurant locations?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, our Enterprise plan supports multi-location management with a unified super-admin dashboard for all your outlets."
+          }
+        }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://www.zappy.ind.in/"
+        }
+      ]
+    }
+    </script>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

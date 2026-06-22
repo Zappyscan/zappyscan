@@ -1,0 +1,14 @@
+project_id = "copkzrwvpqfjpsyyyqdy"
+
+[functions.manage-staff]
+verify_jwt = false
+
+[functions.create-tenant]
+verify_jwt = false
+
+
+[functions.qr-redirect]
+verify_jwt = false
+
+[functions.notify-quote]
+verify_jwt = false

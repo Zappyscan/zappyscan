@@ -1,0 +1,165 @@
+import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { useAuth } from "@/hooks/useAuth";
+import { useSuperAdminProfile } from "@/hooks/useSuperAdminProfile";
+import { ZappyLogo } from "@/components/branding/ZappyLogo";
+import {
+  LayoutDashboard,
+  Building2,
+  BarChart3,
+  Users,
+  LogOut,
+  Settings,
+  CreditCard,
+  Megaphone,
+  Trophy,
+  UserCircle,
+  ClipboardList,
+  Database,
+  ScrollText,
+} from "lucide-react";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarFooter,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+interface NavItem {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  value: string;
+}
+
+const navItems: NavItem[] = [
+  { title: "Dashboard", icon: LayoutDashboard, value: "dashboard" },
+  { title: "Tenants / Hotels", icon: Building2, value: "restaurants" },
+  { title: "Leads CRM", icon: ClipboardList, value: "leads" },
+  { title: "Leaderboard", icon: Trophy, value: "leaderboard" },
+  { title: "User Management", icon: Users, value: "users" },
+  { title: "Subscription Plans", icon: CreditCard, value: "plans" },
+  { title: "Platform Ads", icon: Megaphone, value: "ads" },
+  { title: "Promotions", icon: Trophy, value: "promotions" },
+  { title: "Settings", icon: Settings, value: "settings" },
+  { title: "Image Storage", icon: Database, value: "storage" },
+  { title: "System Logs", icon: ScrollText, value: "logs" },
+  { title: "My Profile", icon: UserCircle, value: "profile" },
+];
+
+interface SuperAdminSidebarProps {
+  activeTab: string;
+  onTabChange: (tab: string) => void;
+}
+
+export function SuperAdminSidebar({ activeTab, onTabChange }: SuperAdminSidebarProps) {
+  const navigate = useNavigate();
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
+  const { signOut, user } = useAuth();
+  const { profile } = useSuperAdminProfile();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/super-admin/login");
+  };
+
+  // Resolve avatar: stored URL > emoji > fallback
+  const avatarUrl = profile?.avatar_url?.startsWith('emoji:')
+    ? null
+    : profile?.avatar_url || null;
+  const avatarEmoji = profile?.avatar_url?.startsWith('emoji:')
+    ? profile.avatar_url.replace('emoji:', '')
+    : null;
+  const displayName = profile?.display_name || user?.email?.split('@')[0] || 'Super Admin';
+
+  return (
+    <Sidebar className="border-r-0 bg-sidebar" collapsible="icon">
+      <SidebarHeader className="p-4">
+        <div className="flex items-center gap-3">
+          <ZappyLogo size={48} compact variant="dark" />
+          {!collapsed && (
+            <motion.div
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="flex flex-col"
+            >
+              <span className="font-bold text-sidebar-foreground">Super Admin</span>
+              <span className="text-xs text-sidebar-foreground/60">Platform Console</span>
+            </motion.div>
+          )}
+        </div>
+      </SidebarHeader>
+
+      <SidebarContent className="px-3 py-4">
+        <SidebarMenu>
+          {navItems.map((item) => {
+            const isActive = activeTab === item.value;
+            return (
+              <SidebarMenuItem key={item.value}>
+                <SidebarMenuButton
+                  onClick={() => onTabChange(item.value)}
+                  tooltip={item.title}
+                  className={cn(
+                    "w-full justify-start gap-3 rounded-xl transition-all duration-200",
+                    isActive
+                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                  )}
+                >
+                  <item.icon className="w-5 h-5 shrink-0" />
+                  {!collapsed && <span className="font-medium">{item.title}</span>}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
+        </SidebarMenu>
+      </SidebarContent>
+
+      <SidebarFooter className="p-4 mt-auto border-t border-sidebar-border">
+        <div
+          className="flex items-center gap-3 mb-3 cursor-pointer rounded-lg p-1 hover:bg-sidebar-accent/50 transition-colors"
+          onClick={() => onTabChange('profile')}
+        >
+          <Avatar className="w-10 h-10 shrink-0">
+            {avatarUrl && <AvatarImage src={avatarUrl} className="object-cover" />}
+            <AvatarFallback className="bg-primary/20 text-primary">
+              {avatarEmoji || displayName.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          {!collapsed && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col overflow-hidden"
+            >
+              <span className="font-medium text-sm text-sidebar-foreground truncate">
+                {displayName}
+              </span>
+              <span className="text-xs text-sidebar-foreground/60 truncate">
+                {user?.email || "admin@platform.com"}
+              </span>
+            </motion.div>
+          )}
+        </div>
+        <Button
+          variant="ghost"
+          onClick={handleLogout}
+          className={cn(
+            "w-full justify-start gap-3 text-sidebar-foreground/70 hover:text-destructive hover:bg-destructive/10",
+            collapsed && "justify-center px-2"
+          )}
+        >
+          <LogOut className="w-5 h-5 shrink-0" />
+          {!collapsed && <span>Logout</span>}
+        </Button>
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
