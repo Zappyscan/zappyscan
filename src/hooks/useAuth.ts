@@ -181,17 +181,13 @@ export const useAuth = () => {
   const impersonateRestaurant = (id: string | null) => {
     if (id) {
       localStorage.setItem('impersonated_restaurant_id', id);
-      setAuthState(prev => ({ 
-        ...prev, 
-        restaurantId: id 
-      }));
+      setAuthState(prev => ({ ...prev, restaurantId: id }));
     } else {
       localStorage.removeItem('impersonated_restaurant_id');
-      setAuthState(prev => ({ 
-        ...prev, 
-        restaurantId: null 
-      }));
+      setAuthState(prev => ({ ...prev, restaurantId: null }));
     }
+    // Broadcast to all other useAuth instances (e.g. ImpersonationBanner)
+    window.dispatchEvent(new CustomEvent('zappy:impersonation-change', { detail: { id } }));
   };
 
   const getRouteForRole = (role: AppRole | null): string => {

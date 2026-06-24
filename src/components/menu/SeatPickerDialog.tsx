@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Armchair, CheckCircle2 } from "lucide-react";
+import { Armchair, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface SeatPickerOverlayProps {
@@ -31,6 +31,7 @@ export function SeatPickerDialog({
 }: SeatPickerOverlayProps) {
   const [selectedSeats, setSelectedSeats] = useState<number[]>([]);
   const [logoFailed, setLogoFailed] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   const accentColor = primaryColor || "#10b981"; // emerald-500 default
 
@@ -178,18 +179,25 @@ export function SeatPickerDialog({
             <Button
               className="w-full h-14 rounded-2xl text-base font-bold transition-all"
               style={
-                selectedSeats.length > 0
+                selectedSeats.length > 0 && !isConfirming
                   ? { backgroundColor: accentColor, color: "#fff", opacity: 1 }
                   : { opacity: 0.45 }
               }
-              disabled={selectedSeats.length === 0 || occupiedSeats.length >= capacity}
-              onClick={() => selectedSeats.length > 0 && onConfirm(tableNumber, selectedSeats)}
+              disabled={selectedSeats.length === 0 || occupiedSeats.length >= capacity || isConfirming}
+              onClick={() => {
+                if (selectedSeats.length > 0 && !isConfirming) {
+                  setIsConfirming(true);
+                  onConfirm(tableNumber, selectedSeats);
+                }
+              }}
             >
-              {occupiedSeats.length >= capacity 
-                ? "Table Full" 
-                : selectedSeats.length > 0
-                ? `Confirm Seats (${[...selectedSeats].sort((a,b)=>a-b).join(',')})`
-                : "Pick a seat to continue"}
+              {isConfirming
+                ? <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Confirming…</span>
+                : occupiedSeats.length >= capacity
+                  ? "Table Full"
+                  : selectedSeats.length > 0
+                  ? `Confirm Seats (${[...selectedSeats].sort((a,b)=>a-b).join(',')})`
+                  : "Pick a seat to continue"}
             </Button>
           </motion.div>
         </motion.div>

@@ -5,11 +5,21 @@ import { Button } from '@/components/ui/button';
 import { Eye } from 'lucide-react';
 
 export function ImpersonationBanner() {
-  const { role, restaurantId, impersonateRestaurant } = useAuth();
+  const { role, impersonateRestaurant } = useAuth();
   const [restaurantName, setRestaurantName] = useState<string>('');
+  const [impId, setImpId] = useState<string | null>(() => localStorage.getItem('impersonated_restaurant_id'));
+
+  // Re-sync when any useAuth instance calls impersonateRestaurant
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const id = (e as CustomEvent).detail?.id ?? null;
+      setImpId(id);
+    };
+    window.addEventListener('zappy:impersonation-change', handler);
+    return () => window.removeEventListener('zappy:impersonation-change', handler);
+  }, []);
 
   useEffect(() => {
-    const impId = localStorage.getItem('impersonated_restaurant_id');
     if (role === 'super_admin' && impId) {
       supabase
         .from('restaurants')
@@ -17,21 +27,18 @@ export function ImpersonationBanner() {
         .eq('id', impId)
         .maybeSingle()
         .then(({ data }) => {
-          if (data) {
-            setRestaurantName(data.name);
-          } else {
-            setRestaurantName('Loading...');
-          }
+          setRestaurantName(data?.name || 'Loading...');
         });
+    } else {
+      setRestaurantName('');
     }
-  }, [role, restaurantId]);
+  }, [role, impId]);
 
   const handleStop = () => {
     impersonateRestaurant(null);
     window.location.href = '/super-admin';
   };
 
-  const impId = localStorage.getItem('impersonated_restaurant_id');
   if (role !== 'super_admin' || !impId) return null;
 
   return (

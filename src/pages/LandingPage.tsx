@@ -144,7 +144,7 @@ const LandingPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background relative">
+    <div className="min-h-screen bg-[#0B1120] relative">
       <ScrollProgress />
 
       {/* Header */}

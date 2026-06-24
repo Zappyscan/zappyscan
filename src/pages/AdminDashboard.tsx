@@ -311,7 +311,7 @@ const AdminDashboard = () => {
 
 
           <main className="p-6">
-            <AnimatePresence mode="wait">
+            <AnimatePresence>
               {activeTab === "dashboard" && (
                 <OverviewTab
                   orders={orders}
