@@ -51,7 +51,6 @@ import { PreviewTabContent } from "@/components/admin/PreviewTabContent";
 import { OverviewTab } from "@/components/admin/OverviewTab";
 import { MenuTab } from "@/components/admin/MenuTab";
 import { QRCenter } from "@/pages/QRCenter";
-import { QRScanAnalytics } from "@/components/analytics/QRScanAnalytics";
 import { useRestaurants, useRestaurantDetails } from "@/hooks/useRestaurant";
 import { useMenuItems, useCategories } from "@/hooks/useMenuItems";
 import { InventoryManager } from "@/components/admin/InventoryManager";
@@ -219,6 +218,42 @@ const AdminDashboard = () => {
           toast({ title: "New Order!", description: "A new order has been placed." });
         }
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tables', filter: `restaurant_id=eq.${restaurantId}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["tables", restaurantId] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'table_sessions', filter: `restaurant_id=eq.${restaurantId}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["table_sessions"] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'seat_occupancy', filter: `restaurant_id=eq.${restaurantId}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["seat-occupancy"] });
+          queryClient.invalidateQueries({ queryKey: ["seat-occupancy-all"] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'employee_assignments', filter: `restaurant_id=eq.${restaurantId}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["employee_assignments", restaurantId] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'waiter_calls', filter: `restaurant_id=eq.${restaurantId}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["waiter_calls", restaurantId] });
+        }
+      )
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
           setWsStatus("connected");
@@ -327,17 +362,6 @@ const AdminDashboard = () => {
                 </motion.div>
               )}
 
-              {activeTab === "qr-manager" && (
-                <motion.div
-                  key="qr-manager"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <QRCenter restaurantId={restaurantId} />
-                </motion.div>
-              )}
 
               {activeTab === "waiters" && (
                 <motion.div
@@ -538,7 +562,6 @@ const AdminDashboard = () => {
                   className="space-y-8"
                 >
                   <QRCenter restaurantId={restaurantId} />
-                  <QRScanAnalytics restaurantId={restaurantId} />
                 </motion.div>
               )}
 

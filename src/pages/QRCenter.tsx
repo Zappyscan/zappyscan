@@ -3,8 +3,9 @@ import { useQRCodes, useCreateQRCode, useUpdateQRCode, useDeleteQRCode, type QRC
 import { useRestaurantDetails } from "@/hooks/useRestaurant";
 import { useTables, useCreateTable, useDeleteTable } from "@/hooks/useTables";
 import { getAppOrigin } from "@/utils/url";
+import { checkTableDependencies } from "@/utils/tableDependencies";
+import { TableDeleteConfirmDialog } from "@/components/admin/TableDeleteConfirmDialog";
 import { AdvancedQRBuilder } from "@/components/admin/qr/AdvancedQRBuilder";
-import { QRPrintCenter } from "@/components/admin/qr/QRPrintCenter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,6 @@ import { Label } from "@/components/ui/label";
 import { Plus, Download, Trash2, QrCode as QrCodeIcon, Loader2, Grid3X3, X, ExternalLink, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import jsPDF from "jspdf";
 import QRCodeStyling, { DotType, CornerSquareType, CornerDotType } from "qr-code-styling";
 
 interface QRCenterProps {
@@ -91,59 +91,24 @@ function QRPreviewCard({
 
   const downloadQR = async (ext: "png" | "svg") => {
     try {
-      await qrCode.download({ extension: ext, name: `zappy-qr-${qr.qr_name.replace(/\\s+/g, '-').toLowerCase()}` });
+      const rawData = await qrCode.getRawData(ext);
+      if (!rawData) throw new Error("Could not generate raw data");
+      
+      const blob = new Blob([rawData], { type: ext === "png" ? "image/png" : "image/svg+xml" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const formattedName = qr.qr_name.replace(/\s+/g, '-').toLowerCase();
+      link.download = `zappy-qr-${formattedName}.${ext}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
       toast({ title: "Success", description: `Downloaded QR code as ${ext.toUpperCase()}` });
     } catch (e) {
       console.error("Export error", e);
       toast({ title: "Error", description: `Failed to download ${ext.toUpperCase()}`, variant: "destructive" });
-    }
-  };
-
-  const downloadPDF = async () => {
-    try {
-      const rawSvg = await qrCode.getRawData("svg");
-      if (!rawSvg) throw new Error("Could not get SVG data");
-      
-      const svgData = new XMLSerializer().serializeToString(rawSvg as Node);
-      const canvas = document.createElement("canvas");
-      canvas.width = 1024;
-      canvas.height = 1024;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => {
-        try {
-          ctx.fillStyle = meta.bg_color || "#FFFFFF";  // always white base for print
-          ctx.fillRect(0, 0, 1024, 1024);
-          // add 32px quiet zone margin around QR
-          ctx.drawImage(img, 0, 0, 1024, 1024);
-          
-          const imgData = canvas.toDataURL("image/png");
-          const pdf = new jsPDF({
-            orientation: "portrait",
-            unit: "mm",
-            format: "a4"
-          });
-          
-          pdf.setFontSize(22);
-          pdf.text(qr.qr_name || "QR Code", 105, 30, { align: "center" });
-          pdf.addImage(imgData, 'PNG', 55, 50, 100, 100);
-          
-          pdf.setFontSize(12);
-          pdf.text("Scan me!", 105, 160, { align: "center" });
-          
-          pdf.save(`zappy-qr-${qr.qr_name.replace(/\\s+/g, '-').toLowerCase()}.pdf`);
-        } catch (e) {
-          console.error("PDF generation error:", e);
-          toast({ title: "Error", description: "Failed to generate PDF.", variant: "destructive" });
-        }
-      };
-      img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
-    } catch (err) {
-      console.error(err);
-      toast({ title: "Error", description: "Failed to generate PDF", variant: "destructive" });
     }
   };
 
@@ -175,15 +140,9 @@ function QRPreviewCard({
           <span className="font-medium bg-muted px-2 py-0.5 rounded-full">{qr.scan_count || 0} scans</span>
         </div>
         
-        <div className="grid grid-cols-3 gap-2">
-          <Button variant="outline" size="sm" className="w-full rounded-xl gap-1 h-9 text-[10px]" onClick={() => downloadQR("png")}>
-            <Download className="w-3 h-3" /> PNG
-          </Button>
-          <Button variant="outline" size="sm" className="w-full rounded-xl gap-1 h-9 text-[10px]" onClick={downloadPDF}>
-            <Download className="w-3 h-3" /> PDF
-          </Button>
-          <Button variant="outline" size="sm" className="w-full rounded-xl gap-1 h-9 text-[10px]" onClick={() => downloadQR("svg")}>
-            <Download className="w-3 h-3" /> SVG
+        <div>
+          <Button variant="outline" size="sm" className="w-full rounded-xl gap-1.5 h-9 text-xs" onClick={() => downloadQR("png")}>
+            <Download className="w-3.5 h-3.5" /> Download
           </Button>
         </div>
         <div className="grid grid-cols-2 gap-2 mt-2">
@@ -230,6 +189,11 @@ export function QRCenter({ restaurantId }: QRCenterProps) {
   const { toast } = useToast();
   const [editingQR, setEditingQR] = useState<QRCode | null>(null);
 
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [tableToDelete, setTableToDelete] = useState<any | null>(null);
+  const [dependencyCounts, setDependencyCounts] = useState<any | null>(null);
+  const [deletingTableInProgress, setDeletingTableInProgress] = useState(false);
+
   const handleDeleteQR = async (qr: QRCode) => {
     if (!confirm(`Are you sure you want to deactivate/delete "${qr.qr_name}"?`)) return;
     try {
@@ -274,18 +238,34 @@ export function QRCenter({ restaurantId }: QRCenterProps) {
   };
 
   const handleDeleteTable = async (table: any) => {
-    if (!confirm(`Delete table ${table.table_number}? Its QR code will be deactivated.`)) return;
     try {
-      await deleteTable.mutateAsync({ id: table.id, restaurantId });
+      setTableToDelete(table);
+      const counts = await checkTableDependencies(table.id);
+      setDependencyCounts(counts);
+      setDeleteConfirmOpen(true);
+    } catch (e: any) {
+      toast({ title: "Error checking dependencies", description: e.message, variant: "destructive" });
+    }
+  };
+
+  const handleConfirmDeleteTable = async () => {
+    if (!tableToDelete) return;
+    setDeletingTableInProgress(true);
+    try {
+      await deleteTable.mutateAsync({ id: tableToDelete.id, restaurantId });
       const matchingQR = qrCodes.find(
-        (q) => (q.metadata as any)?.table_id === table.id
+        (q) => (q.metadata as any)?.table_id === tableToDelete.id
       );
       if (matchingQR) {
         await deleteQR.mutateAsync({ id: matchingQR.id, tenantId: restaurantId });
       }
-      toast({ title: "Table Deleted", description: `Table ${table.table_number} removed.` });
+      toast({ title: "Table Archived", description: `Table ${tableToDelete.table_number} archived.` });
+      setDeleteConfirmOpen(false);
+      setTableToDelete(null);
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setDeletingTableInProgress(false);
     }
   };
 
@@ -475,9 +455,16 @@ export function QRCenter({ restaurantId }: QRCenterProps) {
         </Card>
       )}
 
-      {!showBuilder && !isLoading && (
-        <QRPrintCenter restaurantId={restaurantId} baseUrl={BASE_URL} tables={tables} />
-      )}
+
+
+      <TableDeleteConfirmDialog
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={handleConfirmDeleteTable}
+        tableNumber={tableToDelete?.table_number || ""}
+        loading={deletingTableInProgress}
+        dependencyCounts={dependencyCounts}
+      />
     </div>
   );
 }

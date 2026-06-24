@@ -1,7 +1,9 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  CreditCard, Volume2, VolumeX, BarChart3, Receipt, Clock, ArrowLeft,
+  CreditCard, Volume2, VolumeX, BarChart3, Receipt, Clock,
   FileText, Banknote, Smartphone, CreditCard as CardIcon, Printer,
   AlertCircle, RefreshCw, Users, TrendingUp, Percent, Eye, ChevronDown, ChevronUp,
   User, Phone, Hash, Calendar, IndianRupee, Wallet, Split, Search, Keyboard
@@ -30,6 +32,7 @@ import DiscountButtons from '@/components/billing/DiscountButtons';
 import SplitPaymentPanel from '@/components/billing/SplitPaymentPanel';
 import { format } from 'date-fns';
 import { useAtomicBilling } from '@/hooks/useAtomicBilling';
+import { usePendingWaiterCalls } from '@/hooks/useWaiterCalls';
 
 import { useAuth } from '@/hooks/useAuth';
 import { TenantThemeProvider } from '@/components/admin/TenantThemeProvider';
@@ -43,6 +46,7 @@ interface BillingCounterProps {
 
 const BillingCounter = ({ embedded = false, restaurantId: propRestaurantId }: BillingCounterProps) => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const { restaurantId: authRestaurantId, signOut } = useAuth();
 
@@ -65,6 +69,8 @@ const BillingCounter = ({ embedded = false, restaurantId: propRestaurantId }: Bi
   );
   const { data: todayInvoices = [] } = useTodayInvoices(restaurantId);
   const { data: invoiceStats } = useInvoiceStats(restaurantId);
+  const { data: waiterCalls = [], refetch: refetchWaiterCalls } = usePendingWaiterCalls(restaurantId);
+  const billRequests = useMemo(() => waiterCalls.filter(c => c.reason === 'Bill requested'), [waiterCalls]);
 
   const updatePayment = useUpdateOrderPayment();
   const createInvoice = useCreateInvoice();
@@ -75,7 +81,7 @@ const BillingCounter = ({ embedded = false, restaurantId: propRestaurantId }: Bi
   const [splitAmounts, setSplitAmounts] = useState({ cash: 0, upi: 0, card: 0 });
   const [activeTab, setActiveTab] = useState<'billing' | 'history' | 'analytics'>('billing');
   const [showReceiptPreview, setShowReceiptPreview] = useState(false);
-  const [orderToPrint, setOrderToPrint] = useState<OrderWithItems | null>(null);
+  const [orderToPrint, setOrderToPrint] = useState<any | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedTableFilter, setSelectedTableFilter] = useState<string | null>(null);
   const [selectedDiscount, setSelectedDiscount] = useState(0);
@@ -162,6 +168,7 @@ const BillingCounter = ({ embedded = false, restaurantId: propRestaurantId }: Bi
     ? Math.max(0, Number(selectedOrder.total_amount || 0) - discountAmount)
     : 0;
 
+
   const handleCompletePayment = async () => {
     if (!selectedOrder || !restaurantId) return;
 
@@ -172,7 +179,52 @@ const BillingCounter = ({ embedded = false, restaurantId: propRestaurantId }: Bi
       : undefined;
 
     try {
-      // Attempt atomic billing transaction (single DB call)
+      const isMerged = selectedOrder.id.startsWith('MERGED-');
+      const mergedOrderIds = (selectedOrder as any).merged_order_ids as string[] | undefined;
+
+      if (isMerged && mergedOrderIds) {
+        // Fallback approach for merged orders (RPC doesn't support array of order IDs yet)
+        const invoiceItems = selectedOrder.order_items?.map(item => ({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          price: Number(item.price),
+          total: Number(item.price) * item.quantity,
+        })) || [];
+
+        // Update all associated orders
+        await supabase
+          .from('orders')
+          .update({
+            status: 'completed',
+            payment_method: selectedPaymentMethod,
+            payment_status: 'paid',
+          })
+          .in('id', mergedOrderIds);
+
+        // Create one master invoice linked to the first order ID
+        await supabase
+          .from('invoices')
+          .insert({
+            restaurant_id: restaurantId,
+            order_id: mergedOrderIds[0],
+            invoice_number: generateInvoiceNumber(restaurantId),
+            subtotal: Number(selectedOrder.subtotal) || 0,
+            tax_amount: Number(selectedOrder.tax_amount) || 0,
+            service_charge: Number(selectedOrder.service_charge) || 0,
+            discount_amount: discountAmount,
+            total_amount: adjustedTotal,
+            payment_method: selectedPaymentMethod,
+            payment_status: 'paid',
+            items: invoiceItems as any,
+            customer_name: customerName.trim() || null,
+            customer_phone: customerPhone.trim() || null,
+            notes: splitNote ? `MERGED BILL | ${splitNote}` : 'MERGED BILL',
+          });
+
+        refetchOrders();
+      } else {
+        // Attempt atomic billing transaction (single DB call)
       await completeBilling.mutateAsync({
         orderId: selectedOrder.id,
         paymentMethod: selectedPaymentMethod,
@@ -183,8 +235,15 @@ const BillingCounter = ({ embedded = false, restaurantId: propRestaurantId }: Bi
         notes: splitNote || null,
         invoiceNumber: generateInvoiceNumber(restaurantId),
       });
+      }
 
       if (!isMuted) playSound();
+
+      // Invalidate related query caches to refresh Admin UI and Table State instantly
+      queryClient.invalidateQueries({ queryKey: ["table_sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin_active_session_details"] });
+      queryClient.invalidateQueries({ queryKey: ["tables"] });
+      queryClient.invalidateQueries({ queryKey: ["seat-occupancy"] });
 
       toast({
         title: '✅ Payment Completed',
@@ -251,6 +310,9 @@ const BillingCounter = ({ embedded = false, restaurantId: propRestaurantId }: Bi
 
           if (!isMuted) playSound();
 
+          // Billing only records payment and creates the invoice. Session cleanup is
+          // intentionally owned by the guest's End Session action or Admin Kill Session.
+
           toast({
             title: '✅ Payment Completed',
             description: `Order #${selectedOrder.order_number} paid via ${selectedPaymentMethod}. Total: ${currencySymbol}${adjustedTotal.toFixed(2)}`,
@@ -286,52 +348,61 @@ const BillingCounter = ({ embedded = false, restaurantId: propRestaurantId }: Bi
       return;
     }
 
+    const isInvoice = 'invoice_number' in target;
+    const matchingOrder = isInvoice
+      ? allOrders.find(o => o.id === target.order_id)
+      : null;
+
     let receiptData;
-    if ('invoice_number' in target) {
-      // It's an Invoice
+    if (isInvoice) {
+      const invoice = target as Invoice;
       receiptData = {
         restaurantName: restaurantName,
         address: restaurant?.address || undefined,
         phone: restaurant?.phone || undefined,
-        invoiceNumber: target.invoice_number,
-        tableNumber: 'Table',
-        date: new Date(target.created_at),
-        items: target.items.map(item => ({
+        invoiceNumber: invoice.invoice_number,
+        tableNumber: matchingOrder?.table?.table_number || 'N/A',
+        seatNumber: matchingOrder?.seat_number || null,
+        tokenNumber: matchingOrder?.order_number || null,
+        date: new Date(invoice.created_at || Date.now()),
+        items: invoice.items.map(item => ({
           name: item.name,
           quantity: item.quantity,
           price: Number(item.price),
           total: Number(item.total),
         })),
-        subtotal: Number(target.subtotal) || 0,
+        subtotal: Number(invoice.subtotal) || 0,
         taxRate: taxRate,
-        taxAmount: Number(target.tax_amount) || 0,
-        serviceCharge: Number(target.service_charge) || 0,
-        discount: Number(target.discount_amount) || 0,
-        total: Number(target.total_amount) || 0,
-        paymentMethod: target.payment_method,
+        taxAmount: Number(invoice.tax_amount) || 0,
+        serviceCharge: Number(invoice.service_charge) || 0,
+        discount: Number(invoice.discount_amount) || 0,
+        total: Number(invoice.total_amount) || 0,
+        paymentMethod: invoice.payment_method || 'cash',
       };
     } else {
-      // It's an OrderWithItems
+      const order = target as OrderWithItems;
       receiptData = {
         restaurantName: restaurantName,
         address: restaurant?.address || undefined,
         phone: restaurant?.phone || undefined,
-        invoiceNumber: String(target.order_number),
-        tableNumber: target.table?.table_number || 'N/A',
-        date: new Date(target.created_at || Date.now()),
-        items: target.order_items?.map(item => ({
+        invoiceNumber: String(order.order_number),
+        tableNumber: order.table?.table_number || 'N/A',
+        seatNumber: order.seat_number || null,
+        tokenNumber: order.order_number || null,
+        date: new Date(order.created_at || Date.now()),
+        items: order.order_items?.map(item => ({
           name: item.name,
           quantity: item.quantity,
           price: Number(item.price),
           total: Number(item.price) * item.quantity,
         })) || [],
-        subtotal: Number(target.subtotal) || 0,
+        subtotal: Number(order.subtotal) || 0,
         taxRate: taxRate,
-        taxAmount: Number(target.tax_amount) || 0,
-        serviceCharge: Number(target.service_charge) || 0,
-        discount: target.id === selectedOrder?.id ? discountAmount : 0,
-        total: Number(target.total_amount) || 0,
-        paymentMethod: target.payment_method || 'cash',
+        taxAmount: Number(order.tax_amount) || 0,
+        serviceCharge: Number(order.service_charge) || 0,
+        discount: order.id === selectedOrder?.id ? discountAmount : 0,
+        total: Number(order.total_amount) || 0,
+        paymentMethod: order.payment_method || 'cash',
       };
     }
 
@@ -357,6 +428,70 @@ const BillingCounter = ({ embedded = false, restaurantId: propRestaurantId }: Bi
   const todayTotal = invoiceStats?.totalRevenue || 0;
   const completedCount = invoiceStats?.invoiceCount || 0;
   const paymentBreakdown = invoiceStats?.paymentBreakdown || { cash: 0, card: 0, upi: 0, wallet: 0, split: 0 };
+  const receiptProps = useMemo(() => {
+    if (!orderToPrint) return null;
+
+    const isInvoice = 'invoice_number' in orderToPrint;
+    const matchingOrder = isInvoice
+      ? allOrders.find(o => o.id === orderToPrint.order_id)
+      : null;
+
+    if (isInvoice) {
+      const invoice = orderToPrint as Invoice;
+      return {
+        restaurantName: restaurantName,
+        restaurantAddress: restaurant?.address || '',
+        restaurantPhone: restaurant?.phone || '',
+        orderNumber: invoice.invoice_number,
+        tableNumber: matchingOrder?.table?.table_number || 'N/A',
+        seatNumber: matchingOrder?.seat_number || null,
+        tokenNumber: matchingOrder?.order_number || null,
+        items: invoice.items.map(item => ({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          price: Number(item.price),
+          total: Number(item.total),
+        })),
+        subtotal: Number(invoice.subtotal) || 0,
+        taxAmount: Number(invoice.tax_amount) || 0,
+        taxRate: taxRate,
+        serviceCharge: Number(invoice.service_charge) || 0,
+        serviceChargeRate: serviceChargeRate,
+        totalAmount: Number(invoice.total_amount) || 0,
+        paymentMethod: invoice.payment_method || 'cash',
+        currencySymbol: currencySymbol,
+        createdAt: new Date(invoice.created_at || Date.now()),
+      };
+    } else {
+      const order = orderToPrint as OrderWithItems;
+      return {
+        restaurantName: restaurantName,
+        restaurantAddress: restaurant?.address || '',
+        restaurantPhone: restaurant?.phone || '',
+        orderNumber: String(order.order_number),
+        tableNumber: order.table?.table_number || 'N/A',
+        seatNumber: order.seat_number || null,
+        tokenNumber: order.order_number || null,
+        items: order.order_items?.map(item => ({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          price: Number(item.price),
+          total: Number(item.price) * item.quantity,
+        })) || [],
+        subtotal: Number(order.subtotal) || 0,
+        taxAmount: Number(order.tax_amount) || 0,
+        taxRate: taxRate,
+        serviceCharge: Number(order.service_charge) || 0,
+        serviceChargeRate: serviceChargeRate,
+        totalAmount: Number(order.total_amount) || 0,
+        paymentMethod: order.payment_method || 'cash',
+        currencySymbol: currencySymbol,
+        createdAt: new Date(order.created_at || Date.now()),
+      };
+    }
+  }, [orderToPrint, allOrders, restaurant, restaurantName, taxRate, serviceChargeRate, currencySymbol]);
 
   if (!restaurantId) {
     return (
@@ -383,9 +518,6 @@ const BillingCounter = ({ embedded = false, restaurantId: propRestaurantId }: Bi
           <div className="container mx-auto px-4 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Button variant="ghost" size="icon" onClick={() => navigate('/roles')}>
-                  <ArrowLeft className="w-5 h-5" />
-                </Button>
                 <div className="flex items-center gap-2">
                   <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
                     <CreditCard className="w-6 h-6 text-success" />
@@ -521,16 +653,101 @@ const BillingCounter = ({ embedded = false, restaurantId: propRestaurantId }: Bi
                 </div>
               </div>
             )}
+            {billRequests.length > 0 && (
+              <div className="mb-6 space-y-2">
+                <h3 className="text-sm font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4" />
+                  Pending Bill Requests ({billRequests.length})
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {billRequests.map((call) => (
+                    <Card key={call.id} className="border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20">
+                      <CardContent className="p-3 flex items-center justify-between">
+                        <div>
+                          <p className="font-bold text-sm">Table {call.table?.table_number || 'Unknown'}</p>
+                          <p className="text-xs text-muted-foreground">{getTimeAgo(call.created_at)}</p>
+                        </div>
+                        <Button 
+                          size="sm"
+                          variant="ghost"
+                          className="text-xs text-amber-700 hover:text-amber-800 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950/50 font-bold"
+                          onClick={() => {
+                            if (call.table_id) {
+                              setSelectedTableFilter(call.table_id);
+                              const orderForTable = readyOrders.find(o => o.table_id === call.table_id);
+                              if (orderForTable) {
+                                setSelectedOrder(orderForTable);
+                              }
+                            }
+                          }}
+                        >
+                          View Bill &rarr;
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Ready Orders */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-success" />
-                    Ready for Billing
-                    <Badge variant="secondary" className="ml-auto">{readyOrders.length}</Badge>
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-success" />
+                      Ready for Billing
+                      <Badge variant="secondary">{readyOrders.length}</Badge>
+                    </CardTitle>
+                    {selectedTableFilter && readyOrders.length > 1 && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={() => {
+                          const mergedItems = readyOrders.flatMap(o => o.order_items || []);
+                          const mergedSubtotal = readyOrders.reduce((sum, o) => sum + Number(o.subtotal || 0), 0);
+                          const mergedTax = readyOrders.reduce((sum, o) => sum + Number(o.tax_amount || 0), 0);
+                          const mergedServiceCharge = readyOrders.reduce((sum, o) => sum + Number(o.service_charge || 0), 0);
+                          const mergedTotal = readyOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+
+                          setSelectedOrder({
+                            id: 'MERGED-' + selectedTableFilter,
+                            restaurant_id: restaurantId!,
+                            table_id: selectedTableFilter,
+                            table_session_id: readyOrders[0].table_session_id,
+                            table: readyOrders[0].table,
+                            order_number: readyOrders[0].order_number,
+                            subtotal: mergedSubtotal,
+                            tax_amount: mergedTax,
+                            service_charge: mergedServiceCharge,
+                            total_amount: mergedTotal,
+                            status: 'ready',
+                            order_items: mergedItems,
+                            created_at: new Date().toISOString(),
+                            seat_number: null,
+                            payment_status: 'pending',
+                            payment_method: null,
+                            cancel_reason: null,
+                            cancelled_at: null,
+                            customer_name: null,
+                            customer_phone: null,
+                            estimated_ready_at: null,
+                            ready_at: null,
+                            special_instructions: 'Merged Table Bill',
+                            started_preparing_at: null,
+                            updated_at: new Date().toISOString(),
+                            // Store original IDs for completion
+                            merged_order_ids: readyOrders.map(o => o.id)
+                          } as any);
+                          setSelectedDiscount(0);
+                        }}
+                      >
+                        <Split className="w-4 h-4 mr-2" />
+                        Merge {readyOrders.length} Orders
+                      </Button>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-3 max-h-[65vh] overflow-y-auto">
                   <AnimatePresence>
@@ -572,6 +789,11 @@ const BillingCounter = ({ embedded = false, restaurantId: propRestaurantId }: Bi
                                     <Badge variant="outline" className="font-bold">
                                       {order.table?.table_number || 'Takeaway'}
                                     </Badge>
+                                    {order.seat_number && (
+                                      <Badge variant="secondary" className="text-[10px] font-bold">
+                                        Seat {order.seat_number}
+                                      </Badge>
+                                    )}
                                     <Badge variant="secondary" className="text-[10px]">
                                       #{order.order_number}
                                     </Badge>
@@ -772,12 +994,12 @@ const BillingCounter = ({ embedded = false, restaurantId: propRestaurantId }: Bi
                       )}
 
                       <Button
-                        className="w-full bg-success hover:bg-success/90"
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black"
                         size="lg"
                         onClick={handleCompletePayment}
                         disabled={isProcessing || (selectedPaymentMethod === 'split' && Math.abs(adjustedTotal - splitAmounts.cash - splitAmounts.upi - splitAmounts.card) > 0.01)}
                       >
-                        {isProcessing ? 'Processing...' : `Pay ${currencySymbol}${adjustedTotal.toFixed(2)} via ${selectedPaymentMethod.toUpperCase()}`}
+                        {isProcessing ? 'Processing...' : 'Complete Payment'}
                       </Button>
 
                       {/* Cash Received & Change */}
@@ -975,7 +1197,8 @@ const BillingCounter = ({ embedded = false, restaurantId: propRestaurantId }: Bi
                                       className="w-full mt-3 gap-2"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handlePrintReceipt(invoice);
+                                        setOrderToPrint(invoice);
+                                        setShowReceiptPreview(true);
                                       }}
                                     >
                                       <Printer className="w-3.5 h-3.5" />
@@ -1077,31 +1300,12 @@ const BillingCounter = ({ embedded = false, restaurantId: propRestaurantId }: Bi
           {orderToPrint && (
             <>
               <div className="border rounded-lg overflow-auto max-h-[60vh]">
-                <ThermalReceipt
-                  ref={receiptRef}
-                  restaurantName={restaurantName}
-                  restaurantAddress={restaurant?.address || ''}
-                  restaurantPhone={restaurant?.phone || ''}
-                  orderNumber={String(orderToPrint.order_number)}
-                  tableNumber={orderToPrint.table?.table_number || 'N/A'}
-                  items={orderToPrint.order_items?.map(item => ({
-                    id: item.id,
-                    order_id: item.order_id,
-                    menu_item_id: item.menu_item_id || '',
-                    name: item.name,
-                    quantity: item.quantity,
-                    price: Number(item.price),
-                  })) || []}
-                  subtotal={Number(orderToPrint.subtotal) || 0}
-                  taxAmount={Number(orderToPrint.tax_amount) || 0}
-                  taxRate={taxRate}
-                  serviceCharge={Number(orderToPrint.service_charge) || 0}
-                  serviceChargeRate={serviceChargeRate}
-                  totalAmount={Number(orderToPrint.total_amount) || 0}
-                  paymentMethod={orderToPrint.payment_method || 'cash'}
-                  currencySymbol={currencySymbol}
-                  createdAt={new Date(orderToPrint.created_at || Date.now())}
-                />
+                {receiptProps && (
+                  <ThermalReceipt
+                    ref={receiptRef}
+                    {...receiptProps}
+                  />
+                )}
               </div>
               <div className="flex gap-3 mt-4">
                 <Button

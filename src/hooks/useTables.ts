@@ -19,6 +19,7 @@ export function useTableByNumber(restaurantId?: string, tableNumber?: string) {
         .select("*")
         .eq("restaurant_id", restaurantId)
         .ilike("table_number", tableNumber)
+        .eq("is_active", true)
         .single();
 
       if (error) {
@@ -43,6 +44,7 @@ export function useTables(restaurantId?: string) {
         .from("tables")
         .select("*")
         .eq("restaurant_id", restaurantId)
+        .eq("is_active", true)
         .order("table_number");
 
       if (error) throw error;
@@ -106,7 +108,14 @@ export function useCreateTable() {
     mutationFn: async (table: TableInsert) => {
       const { data, error } = await supabase
         .from("tables")
-        .insert(table)
+        .upsert(
+          {
+            ...table,
+            is_active: true,
+            deleted_at: null,
+          },
+          { onConflict: "restaurant_id,table_number" }
+        )
         .select()
         .single();
 
@@ -147,7 +156,7 @@ export function useDeleteTable() {
     mutationFn: async ({ id, restaurantId }: { id: string; restaurantId: string }) => {
       const { error } = await supabase
         .from("tables")
-        .delete()
+        .update({ is_active: false, deleted_at: new Date().toISOString() })
         .eq("id", id);
 
       if (error) throw new Error(error.message || JSON.stringify(error));
@@ -188,5 +197,144 @@ export function useUpdateTableStatus() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["tables", data.restaurant_id] });
     },
+  });
+}
+
+export function useSeatOccupancy(restaurantId?: string, tableSessionId?: string) {
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ["seat-occupancy", restaurantId, tableSessionId],
+    queryFn: async () => {
+      if (!restaurantId || !tableSessionId) return [];
+      
+      const { data, error } = await supabase
+        .from("seat_occupancy")
+        .select("*, table_sessions!inner(status)")
+        .eq("restaurant_id", restaurantId)
+        .eq("table_session_id", tableSessionId)
+        .eq("status", "occupied")
+        .neq("table_sessions.status", "completed");
+
+      if (error) {
+        console.error("Error fetching seat occupancy:", error);
+        return [];
+      }
+      return data || [];
+    },
+    enabled: !!restaurantId && !!tableSessionId,
+    staleTime: 5000,
+  });
+
+  // Real-time subscription for seat occupancy
+  useEffect(() => {
+    if (!restaurantId || !tableSessionId) return;
+
+    const channel = supabase
+      .channel(`seat-occupancy-${tableSessionId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "seat_occupancy",
+          filter: `table_session_id=eq.${tableSessionId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["seat-occupancy", restaurantId, tableSessionId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [restaurantId, tableSessionId, queryClient]);
+
+  return query;
+}
+
+export function useAllSeatOccupancy(restaurantId?: string) {
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ["seat-occupancy-all", restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return [];
+      
+      const { data, error } = await supabase
+        .from("seat_occupancy")
+        .select("*, table_sessions!inner(status)")
+        .eq("restaurant_id", restaurantId)
+        .eq("status", "occupied")
+        .neq("table_sessions.status", "completed");
+
+      if (error) {
+        console.error("Error fetching all seat occupancy:", error);
+        return [];
+      }
+      return data || [];
+    },
+    enabled: !!restaurantId,
+    staleTime: 5000,
+  });
+
+  // Real-time subscription for all seat occupancy
+  useEffect(() => {
+    if (!restaurantId) return;
+
+    const channel = supabase
+      .channel(`seat-occupancy-all-${restaurantId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "seat_occupancy",
+          filter: `restaurant_id=eq.${restaurantId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["seat-occupancy-all", restaurantId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [restaurantId, queryClient]);
+
+  return query;
+}
+
+export function useOccupySeats() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: { 
+      restaurantId: string; 
+      tableId: string; 
+      tableSessionId: string; 
+      seatNumbers: number[] 
+    }) => {
+      const inserts = params.seatNumbers.map(seat => ({
+        restaurant_id: params.restaurantId,
+        table_id: params.tableId,
+        table_session_id: params.tableSessionId,
+        seat_number: seat,
+        status: 'occupied'
+      }));
+
+      const { data, error } = await supabase
+        .from("seat_occupancy")
+        .insert(inserts)
+        .select();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["seat-occupancy", variables.restaurantId, variables.tableSessionId] });
+    }
   });
 }

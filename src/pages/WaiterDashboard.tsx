@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Bell, Search, Volume2, VolumeX, ArrowLeft, CheckCircle2, AlertCircle, RefreshCw, Loader2, Play, Eye } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -15,6 +15,7 @@ import { useRestaurantDetails } from '@/hooks/useRestaurant';
 import { TenantThemeProvider } from '@/components/admin/TenantThemeProvider';
 import { LogOut } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { useVoiceAnnouncement } from '@/hooks/useVoiceAnnouncement';
 
 const VoicePlayer = ({ url }: { url: string }) => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -126,33 +127,59 @@ const WaiterDashboard = () => {
 
   const { data: tables = [], isLoading: tablesLoading } = useTables(restaurantId);
   const { data: orders = [], isLoading: ordersLoading } = useOrders(restaurantId);
-  const { data: pendingCalls = [], isLoading: callsLoading } = usePendingWaiterCalls(restaurantId);
+  const { data: rawPendingCalls = [], isLoading: callsLoading } = usePendingWaiterCalls(restaurantId);
+  const pendingCalls = useMemo(() => rawPendingCalls.filter(c => c.reason !== 'Bill requested'), [rawPendingCalls]);
 
   const acknowledgeMutation = useAcknowledgeWaiterCall();
   const resolveMutation = useResolveWaiterCall();
   const updateOrderStatusMutation = useUpdateOrderStatus();
 
-  const [isMuted, setIsMuted] = useState(false);
+  const { isMuted, toggleMute, announce, clearAnnouncement } = useVoiceAnnouncement();
   const [searchQuery, setSearchQuery] = useState('');
-  const prevCallCount = useRef(pendingCalls.length);
+  const prevCallsRef = useRef<any[]>([]);
 
-  // Sound alert for new waiter calls
   useEffect(() => {
-    if (!isMuted && pendingCalls.length > prevCallCount.current) {
-      try {
-        const ctx = new AudioContext();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.frequency.value = 880;
-        gain.gain.value = 0.3;
-        osc.start();
-        osc.stop(ctx.currentTime + 0.3);
-      } catch {}
-    }
-    prevCallCount.current = pendingCalls.length;
-  }, [pendingCalls.length, isMuted]);
+    const prevCalls = prevCallsRef.current;
+
+    pendingCalls.forEach(call => {
+      const prevCall = prevCalls.find(c => c.id === call.id);
+      const tableStr = call.table?.table_number ? `Table ${call.table.table_number}` : 'Unknown Table';
+      
+      if (!prevCall) {
+        const reason = call.reason?.toLowerCase() || '';
+        const seatStr = call.seat_number ? ` Seat ${call.seat_number}` : '';
+        const seatStrTa = call.seat_number ? ` இருக்கை ${call.seat_number}` : '';
+        
+        if (reason.includes('bill') || reason.includes('payment') || reason.includes('pay')) {
+          announce(
+            `call-${call.id}-billing`,
+            `Billing requested from ${tableStr}`,
+            `${tableStr} லிருந்து பில் கேட்கப்பட்டுள்ளது.`,
+            false,
+            'call'
+          );
+        } else {
+          announce(
+            `call-${call.id}-waiter`,
+            `Waiter calling from ${tableStr}${seatStr}`,
+            `${tableStr}${seatStrTa} லிருந்து பணியாளர் அழைக்கப்படுகிறார்.`,
+            false,
+            'call'
+          );
+        }
+      }
+    });
+
+    // Handle cleared/resolved calls
+    prevCalls.forEach(prevCall => {
+      if (!pendingCalls.find(c => c.id === prevCall.id)) {
+        clearAnnouncement(`call-${prevCall.id}-billing`);
+        clearAnnouncement(`call-${prevCall.id}-waiter`);
+      }
+    });
+
+    prevCallsRef.current = pendingCalls;
+  }, [pendingCalls, announce, clearAnnouncement]);
 
   const filteredTables = tables.filter((table) =>
     table.table_number.toLowerCase().includes(searchQuery.toLowerCase())
@@ -237,7 +264,7 @@ const WaiterDashboard = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" onClick={() => setIsMuted(!isMuted)}>
+              <Button variant="outline" size="icon" onClick={toggleMute} title={isMuted ? "Unmute Voice" : "Mute Voice"}>
                 {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
               </Button>
               <Button variant="outline" size="icon" onClick={handleLogout} title="Logout">

@@ -12,14 +12,22 @@ interface WaiterCallFABProps {
   restaurantId: string;
   tableId: string;
   tableNumber: string;
+  onDrawerStateChange?: (open: boolean) => void;
+  seatNumber?: number | null;
 }
 
 type CallState = 'idle' | 'sending' | 'pending' | 'acknowledged' | 'completed';
 
-export function WaiterCallFAB({ restaurantId, tableId, tableNumber }: WaiterCallFABProps) {
+export function WaiterCallFAB({ restaurantId, tableId, tableNumber, onDrawerStateChange, seatNumber }: WaiterCallFABProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showDrawer, setShowDrawer] = useState(false);
+
+  useEffect(() => {
+    if (onDrawerStateChange) {
+      onDrawerStateChange(showDrawer);
+    }
+  }, [showDrawer, onDrawerStateChange]);
   
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -88,8 +96,9 @@ export function WaiterCallFAB({ restaurantId, tableId, tableNumber }: WaiterCall
           restaurant_id: restaurantId,
           table_id: tableId,
           reason,
-          status: 'pending'
-        })
+          status: 'pending',
+          seat_number: seatNumber || null
+        } as any)
         .select()
         .single();
       
@@ -284,7 +293,7 @@ export function WaiterCallFAB({ restaurantId, tableId, tableNumber }: WaiterCall
 
   return (
     <>
-      <div className="fixed bottom-20 right-4 z-[45] flex items-center justify-center w-16 h-16 select-none">
+      <div className="fixed bottom-[calc(92px+env(safe-area-inset-bottom))] right-4 z-[45] flex items-center justify-center w-16 h-16 select-none">
         {/* Segmented/Rotating Live Ring around the FAB */}
         <svg className={`absolute inset-0 -rotate-90 w-16 h-16 pointer-events-none transition-transform duration-700 ${currentState === 'pending' || currentState === 'acknowledged' ? 'animate-[spin_4s_linear_infinite] origin-center' : ''}`} viewBox="0 0 64 64">
           <circle
@@ -353,7 +362,7 @@ export function WaiterCallFAB({ restaurantId, tableId, tableNumber }: WaiterCall
       {/* Slide up panel options */}
       <AnimatePresence>
         {showDrawer && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-zinc-950/40 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[100] flex items-end justify-center p-4 bg-zinc-950/40 backdrop-blur-sm">
             <motion.div
               initial={{ y: 200, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}

@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
@@ -14,11 +15,14 @@ export interface TableSessionWithTable extends TableSession {
 }
 
 export function useTableSessions(restaurantId?: string) {
-  return useQuery({
-    queryKey: ["table_sessions", restaurantId],
+  const queryClient = useQueryClient();
+  const queryKey = ["table_sessions", restaurantId];
+
+  const query = useQuery({
+    queryKey,
     queryFn: async () => {
       if (!restaurantId) return [];
-      
+
       const { data, error } = await supabase
         .from("table_sessions")
         .select(`
@@ -33,14 +37,34 @@ export function useTableSessions(restaurantId?: string) {
     },
     enabled: !!restaurantId,
   });
+
+  useEffect(() => {
+    if (!restaurantId) return;
+    const channel = supabase
+      .channel(`table-sessions-${restaurantId}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "table_sessions",
+        filter: `restaurant_id=eq.${restaurantId}`,
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ["table_sessions", restaurantId] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [restaurantId, queryClient]);
+
+  return query;
 }
 
 export function useActiveTableSessions(restaurantId?: string) {
-  return useQuery({
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
     queryKey: ["table_sessions", "active", restaurantId],
     queryFn: async () => {
       if (!restaurantId) return [];
-      
+
       const { data, error } = await supabase
         .from("table_sessions")
         .select(`
@@ -56,6 +80,24 @@ export function useActiveTableSessions(restaurantId?: string) {
     },
     enabled: !!restaurantId,
   });
+
+  useEffect(() => {
+    if (!restaurantId) return;
+    const channel = supabase
+      .channel(`active-table-sessions-${restaurantId}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "table_sessions",
+        filter: `restaurant_id=eq.${restaurantId}`,
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ["table_sessions", "active", restaurantId] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [restaurantId, queryClient]);
+
+  return query;
 }
 
 export function useCreateTableSession() {
