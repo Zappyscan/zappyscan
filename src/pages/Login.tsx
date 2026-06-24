@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { ZappyLogo } from '@/components/branding/ZappyLogo';
-import { lovable } from '@/integrations/lovable/index';
+import { supabase } from '@/integrations/supabase/client';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -191,11 +191,14 @@ const Login = () => {
             className="w-full h-11 rounded-lg border-slate-200 text-slate-700 font-medium text-sm hover:bg-slate-50 flex items-center justify-center gap-2.5"
             disabled={loading}
             onClick={async () => {
-              const { error } = await lovable.auth.signInWithOAuth('google', {
-                redirect_uri: window.location.origin
+              const { error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                  redirectTo: `${window.location.origin}/login`,
+                },
               });
               if (error) {
-                toast({ title: 'Google sign-in failed', description: String(error), variant: 'destructive' });
+                toast({ title: 'Google sign-in failed', description: error.message, variant: 'destructive' });
               }
             }}>
             
