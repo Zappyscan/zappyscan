@@ -32,7 +32,7 @@ export function WaiterManagement({ restaurantId }: { restaurantId: string }) {
     loadEmployees();
     
     // Realtime subscription
-    const channel = supabase.channel('schema-db-changes')
+    const channel = supabase.channel(`waiter-mgmt-${restaurantId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, (payload) => {
         loadEmployees();
       })

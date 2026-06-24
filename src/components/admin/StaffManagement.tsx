@@ -106,7 +106,7 @@ export function StaffManagement({ restaurantId }: StaffManagementProps) {
       setMetrics({
         hoursWorked: Math.round(totalMinutes / 60),
         lateArrivals: lateCount,
-        absentDays: employees.length > 0 ? Math.max(0, 3 - Math.floor(history?.length / employees.length)) : 0,
+        absentDays: empData && empData.length > 0 ? Math.max(0, 3 - Math.floor((history?.length ?? 0) / empData.length)) : 0,
         overtimeHours: Math.round(totalOvertimeMinutes / 60)
       });
     } catch (e: any) {
