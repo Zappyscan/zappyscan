@@ -106,16 +106,33 @@ export function useCreateTable() {
 
   return useMutation({
     mutationFn: async (table: TableInsert) => {
+      // Check for duplicate table number (including soft-deleted — reactivate instead)
+      const { data: existing } = await supabase
+        .from("tables")
+        .select("id, is_active")
+        .eq("restaurant_id", table.restaurant_id)
+        .ilike("table_number", table.table_number as string)
+        .maybeSingle();
+
+      if (existing) {
+        if (existing.is_active) {
+          throw new Error(`Table "${table.table_number}" already exists. Please use a different number.`);
+        }
+        // Reactivate soft-deleted table
+        const { data, error } = await supabase
+          .from("tables")
+          .update({ ...table, is_active: true, deleted_at: null })
+          .eq("id", existing.id)
+          .select()
+          .single();
+        if (error) throw error;
+        return data;
+      }
+
+      // New table — plain insert
       const { data, error } = await supabase
         .from("tables")
-        .upsert(
-          {
-            ...table,
-            is_active: true,
-            deleted_at: null,
-          },
-          { onConflict: "restaurant_id,table_number" }
-        )
+        .insert({ ...table, is_active: true, deleted_at: null })
         .select()
         .single();
 
