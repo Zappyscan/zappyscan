@@ -258,12 +258,31 @@ export function useKitchenOrderActions(restaurantId?: string) {
     async (orderId: string) => {
       setIsPending(true);
       try {
+        const now = new Date().toISOString();
+
+        const { data: order } = await supabase
+          .from("orders")
+          .select("table_session_id")
+          .eq("id", orderId)
+          .single();
+
         const { error } = await supabase
           .from("orders")
-          .update({ status: "preparing" as const, started_preparing_at: new Date().toISOString() })
+          .update({ status: "preparing" as const, started_preparing_at: now })
           .eq("id", orderId);
         if (error) throw error;
+
+        // Stamp order_placed_at on session if not yet set
+        if (order?.table_session_id) {
+          await supabase
+            .from("table_sessions")
+            .update({ order_placed_at: now, status: "preparing" })
+            .eq("id", order.table_session_id)
+            .is("order_placed_at", null);
+        }
+
         queryClient.invalidateQueries({ queryKey: ["orders"] });
+        queryClient.invalidateQueries({ queryKey: ["table_sessions"] });
       } finally {
         setIsPending(false);
       }
@@ -275,12 +294,33 @@ export function useKitchenOrderActions(restaurantId?: string) {
     async (orderId: string) => {
       setIsPending(true);
       try {
+        const now = new Date().toISOString();
+
+        // 1. Fetch table_session_id before updating
+        const { data: order } = await supabase
+          .from("orders")
+          .select("table_session_id")
+          .eq("id", orderId)
+          .single();
+
+        // 2. Mark order ready
         const { error } = await supabase
           .from("orders")
-          .update({ status: "ready" as const, ready_at: new Date().toISOString() })
+          .update({ status: "ready" as const, ready_at: now })
           .eq("id", orderId);
         if (error) throw error;
+
+        // 3. Stamp food_ready_at on the session (first ready order wins)
+        if (order?.table_session_id) {
+          await supabase
+            .from("table_sessions")
+            .update({ food_ready_at: now, status: "served" })
+            .eq("id", order.table_session_id)
+            .is("food_ready_at", null);
+        }
+
         queryClient.invalidateQueries({ queryKey: ["orders"] });
+        queryClient.invalidateQueries({ queryKey: ["table_sessions"] });
       } finally {
         setIsPending(false);
       }
@@ -292,12 +332,33 @@ export function useKitchenOrderActions(restaurantId?: string) {
     async (orderId: string) => {
       setIsPending(true);
       try {
+        const now = new Date().toISOString();
+
+        // 1. Fetch table_session_id before updating
+        const { data: order } = await supabase
+          .from("orders")
+          .select("table_session_id")
+          .eq("id", orderId)
+          .single();
+
+        // 2. Mark order served
         const { error } = await supabase
           .from("orders")
           .update({ status: "served" as const })
           .eq("id", orderId);
         if (error) throw error;
+
+        // 3. Stamp served_at on the session (first served order wins)
+        if (order?.table_session_id) {
+          await supabase
+            .from("table_sessions")
+            .update({ served_at: now, status: "dining" })
+            .eq("id", order.table_session_id)
+            .is("served_at", null);
+        }
+
         queryClient.invalidateQueries({ queryKey: ["orders"] });
+        queryClient.invalidateQueries({ queryKey: ["table_sessions"] });
       } finally {
         setIsPending(false);
       }

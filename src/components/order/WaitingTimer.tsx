@@ -1,9 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
-import { motion } from "framer-motion";
-import { Clock, ChefHat, CheckCircle2, Timer, Eye } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Clock, ChefHat, CheckCircle2, Timer, Eye, XCircle, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import type { OrderWithItems } from "@/hooks/useOrders";
 
 interface WaitingTimerProps {
@@ -121,6 +124,29 @@ export function WaitingTimer({
   const StatusIcon = statusInfo.icon;
   const isPreparing = order.status === "preparing" || order.status === "confirmed";
 
+  // ── Customer cancel ────────────────────────────────────────────────────────
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const canCancel = order.status === "pending" || order.status === "confirmed";
+
+  const handleCancel = async () => {
+    setCancelling(true);
+    const { error } = await supabase
+      .from("orders")
+      .update({ status: "cancelled" as const, cancel_reason: "Customer request", cancelled_at: new Date().toISOString() })
+      .eq("id", order.id);
+    if (error) {
+      toast({ title: "Error", description: "Could not cancel order. Please ask a waiter.", variant: "destructive" });
+    } else {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      toast({ title: "Order Cancelled", description: "Your order has been cancelled." });
+      setShowCancelConfirm(false);
+    }
+    setCancelling(false);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -220,17 +246,62 @@ export function WaitingTimer({
                 </span>
               </div>
               
-              {onViewDetails && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={onViewDetails}
-                >
-                  <Eye className="w-4 h-4 mr-2" />
-                  View Order Details
-                </Button>
-              )}
+              <div className="flex gap-2">
+                {onViewDetails && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={onViewDetails}
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    View Details
+                  </Button>
+                )}
+                {canCancel && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={onViewDetails ? "" : "w-full"}
+                    onClick={() => setShowCancelConfirm(true)}
+                  >
+                    <XCircle className="w-4 h-4 mr-2 text-destructive" />
+                    Cancel Order
+                  </Button>
+                )}
+              </div>
+
+              {/* Cancel confirm prompt */}
+              <AnimatePresence>
+                {showCancelConfirm && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mt-3 overflow-hidden"
+                  >
+                    <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 space-y-2">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-destructive">
+                        <AlertTriangle className="w-4 h-4" />
+                        Cancel this order?
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        This cannot be undone. The kitchen will be notified.
+                      </p>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" className="flex-1 h-8 text-xs"
+                          onClick={() => setShowCancelConfirm(false)} disabled={cancelling}>
+                          Keep Order
+                        </Button>
+                        <Button size="sm" variant="destructive" className="flex-1 h-8 text-xs"
+                          onClick={handleCancel} disabled={cancelling}>
+                          {cancelling ? "Cancelling…" : "Yes, Cancel"}
+                        </Button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </CardContent>

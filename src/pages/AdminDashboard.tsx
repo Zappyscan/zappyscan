@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Settings,
@@ -67,6 +67,7 @@ import { CustomerManagement } from "@/components/admin/CustomerManagement";
 import { SalesAnalytics } from "@/components/admin/SalesAnalytics";
 import { StaffManagement } from "@/components/admin/StaffManagement";
 import { ReportsPanel } from "@/components/admin/ReportsPanel";
+import { TabErrorBoundary } from "@/components/admin/TabErrorBoundary";
 
 /** Append cache-busting param to storage URLs */
 function cacheBustUrl(url: string | null | undefined): string | null {
@@ -108,6 +109,7 @@ const AdminDashboard = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
+  const [, startTransition] = useTransition();
   const { user, role, restaurantId: authRestaurantId, loading: authLoading } = useAuth();
   
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -164,7 +166,9 @@ const AdminDashboard = () => {
       setLockModalReason(reason);
       setLockModalOpen(true);
     } else {
-      setActiveTab(tabValue);
+      startTransition(() => {
+        setActiveTab(tabValue);
+      });
     }
   };
 
@@ -292,6 +296,7 @@ const AdminDashboard = () => {
             primaryColor={restaurant?.primary_color || undefined}
             branding={(restaurant?.settings as any)?.branding}
             logoUrl={cacheBustUrl(restaurant?.logo_url)}
+            restaurantId={restaurantId}
           />
 
           {!isOnline && (
@@ -371,7 +376,9 @@ const AdminDashboard = () => {
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <WaiterManagementPanel restaurantId={restaurantId} />
+                  <TabErrorBoundary tabName="Waiters">
+                    <WaiterManagementPanel restaurantId={restaurantId} />
+                  </TabErrorBoundary>
                 </motion.div>
               )}
 
@@ -496,7 +503,9 @@ const AdminDashboard = () => {
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <InventoryManager restaurantId={restaurantId} />
+                  <TabErrorBoundary tabName="Inventory">
+                    <InventoryManager restaurantId={restaurantId} />
+                  </TabErrorBoundary>
                 </motion.div>
               )}
 
@@ -520,7 +529,9 @@ const AdminDashboard = () => {
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <SalesAnalytics restaurantId={restaurantId} />
+                  <TabErrorBoundary tabName="Analytics">
+                    <SalesAnalytics restaurantId={restaurantId} />
+                  </TabErrorBoundary>
                 </motion.div>
               )}
 
@@ -532,7 +543,9 @@ const AdminDashboard = () => {
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <StaffManagement restaurantId={restaurantId} />
+                  <TabErrorBoundary tabName="Staff">
+                    <StaffManagement restaurantId={restaurantId} />
+                  </TabErrorBoundary>
                 </motion.div>
               )}
 
@@ -544,7 +557,9 @@ const AdminDashboard = () => {
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <ReportsPanel restaurantId={restaurantId} />
+                  <TabErrorBoundary tabName="Reports">
+                    <ReportsPanel restaurantId={restaurantId} />
+                  </TabErrorBoundary>
                 </motion.div>
               )}
 

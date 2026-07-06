@@ -145,6 +145,7 @@ export function WaiterManagement({ restaurantId }: { restaurantId: string }) {
         restaurant_id: restaurantId,
         user_id: newUserId,
         username: newEmp.username,
+        email: fauxEmail,
         full_name: newEmp.full_name,
         role: newEmp.role,
         phone: newEmp.phone,
@@ -155,7 +156,12 @@ export function WaiterManagement({ restaurantId }: { restaurantId: string }) {
 
       // Note: Edge function already inserts into user_roles and staff_profiles!
 
-      toast({ title: "Success", description: "Employee created successfully." });
+      const loginUrl = `${window.location.origin}/waiter/login`;
+      toast({
+        title: "Employee created!",
+        description: `Share this link: ${loginUrl}  |  Username: ${newEmp.username}`,
+        duration: 8000,
+      });
       setIsDialogOpen(false);
       setNewEmp({ username: "", password: "", full_name: "", role: "WAITER", phone: "" });
       loadEmployees();

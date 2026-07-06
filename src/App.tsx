@@ -15,6 +15,7 @@ import TenantAdminLogin from "./pages/TenantAdminLogin";
 import CustomerMenu from "./pages/CustomerMenu";
 import KitchenDashboard from "./pages/KitchenDashboard";
 import WaiterDashboard from "./pages/WaiterDashboard";
+import WaiterLogin from "./pages/WaiterLogin";
 import BillingCounter from "./pages/BillingCounter";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminOnboarding from "./pages/AdminOnboarding";
@@ -82,6 +83,8 @@ const App = () => (
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/super-admin/login" element={<SuperAdminLogin />} />
               <Route path="/admin/login" element={<TenantAdminLogin />} />
+              <Route path="/waiter/login" element={<WaiterLogin />} />
+              <Route path="/staff/login" element={<WaiterLogin />} />
               <Route path="/tenant-admin/login" element={<TenantAdminLogin />} />
               <Route path="/customer-menu" element={<ErrorBoundary><CustomerMenu /></ErrorBoundary>} />
               <Route path="/order" element={<ErrorBoundary><CustomerMenu /></ErrorBoundary>} />

@@ -82,42 +82,53 @@ export function TableSessionTimers({ restaurantId }: TableSessionTimersProps) {
         .eq("restaurant_id", restaurantId)
         .neq("status", "resolved");
 
+      // 4. Fetch active waiter assignments for all tables in these sessions
+      const tableIds = activeSessions.map(s => s.table_id).filter(Boolean);
+      const { data: assignmentsData } = tableIds.length > 0
+        ? await supabase
+            .from("employee_assignments")
+            .select("table_id, employee_id, employees(full_name)")
+            .in("table_id", tableIds)
+            .is("unassigned_at", null)
+        : { data: [] };
+
       const mapping: Record<string, any> = {};
       activeSessions.forEach(session => {
         const sessionSeats = (seatsData || [])
           .filter(s => s.table_session_id === session.id)
           .map(s => s.seat_number)
           .sort((a, b) => a - b);
-          
+
         const sessionOrders = (ordersData || [])
           .filter(o => o.table_session_id === session.id);
-          
+
         const customerName = sessionOrders.find(o => o.customer_name)?.customer_name || "Guest";
-        
+
         const runningBillAmount = sessionOrders
           .filter(o => o.status !== 'cancelled')
           .reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
-          
-        const lastOrder = sessionOrders.length > 0 
+
+        const lastOrder = sessionOrders.length > 0
           ? sessionOrders.reduce((latest, o) => {
               const oTime = new Date(o.created_at || '').getTime();
               return oTime > latest ? oTime : latest;
             }, 0)
           : null;
-          
-        const lastOrderTimeStr = lastOrder 
-          ? `${Math.floor((Date.now() - lastOrder) / 60000)}m ago` 
+
+        const lastOrderTimeStr = lastOrder
+          ? `${Math.floor((Date.now() - lastOrder) / 60000)}m ago`
           : "No orders";
 
         const hasSpecialRequests = sessionOrders.some(o => o.special_instructions && o.special_instructions.trim().length > 0);
-        
+
         const sessionWaiterCalls = (waiterCallsData || [])
           .filter(w => w.table_id === session.table_id);
         const hasCallRequest = sessionWaiterCalls.length > 0;
         const callRequestReason = sessionWaiterCalls.map(w => w.reason).join(", ");
 
-        // Determine Waiter name (Kumar as a default premium touch)
-        const waiterName = "Kumar";
+        // Resolve actual assigned waiter from employee_assignments
+        const assignment = (assignmentsData || []).find((a: any) => a.table_id === session.table_id);
+        const waiterName = (assignment as any)?.employees?.full_name || "Unassigned";
 
         mapping[session.id] = {
           customerName,

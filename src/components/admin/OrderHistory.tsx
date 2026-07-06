@@ -11,7 +11,9 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
+  Ban,
 } from "lucide-react";
+import { CancelOrderDialog } from "@/components/admin/CancelOrderDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -68,6 +70,9 @@ export function OrderHistory({ restaurantId, currencySymbol = "₹" }: OrderHist
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<{ id: string; number: number } | null>(null);
+
+  const CANCELLABLE = ["pending", "confirmed", "preparing"];
 
   const { data: orders = [], isLoading } = useOrders(restaurantId);
 
@@ -227,13 +232,25 @@ export function OrderHistory({ restaurantId, currencySymbol = "₹" }: OrderHist
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedOrder(order.id)}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedOrder(order.id)}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          {CANCELLABLE.includes(order.status || "") && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => setCancelTarget({ id: order.id, number: order.order_number })}
+                            >
+                              <Ban className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </motion.tr>
                   ))}
@@ -243,6 +260,16 @@ export function OrderHistory({ restaurantId, currencySymbol = "₹" }: OrderHist
           )}
         </CardContent>
       </Card>
+
+      {/* Cancel Order Dialog */}
+      {cancelTarget && (
+        <CancelOrderDialog
+          open={!!cancelTarget}
+          onOpenChange={(open) => !open && setCancelTarget(null)}
+          orderId={cancelTarget.id}
+          orderNumber={cancelTarget.number}
+        />
+      )}
 
       {/* Order Detail Modal */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
