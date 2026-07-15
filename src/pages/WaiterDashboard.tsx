@@ -217,11 +217,11 @@ const WaiterDashboard = () => {
   // ── Check in / out ──────────────────────────────────────────────────────────
   const handleCheckIn = async () => {
     if (!employee) return;
-    const isOn = employee.status === 'ON_DUTY';
+    const isOn = employee.status === 'ACTIVE';
     if (!isOn) {
       setCheckingIn(true);
-      const { error } = await supabase.from('employees').update({ status: 'ON_DUTY' }).eq('id', employee.id);
-      if (!error) { setEmployee((e: any) => ({ ...e, status: 'ON_DUTY' })); setShiftStart(new Date()); toast({ title: '✅ Shift started!' }); }
+      const { error } = await supabase.from('employees').update({ status: 'ACTIVE' }).eq('id', employee.id);
+      if (!error) { setEmployee((e: any) => ({ ...e, status: 'ACTIVE' })); setShiftStart(new Date()); toast({ title: '✅ Shift started!' }); }
       setCheckingIn(false);
     } else {
       // Show shift summary before checking out
@@ -285,7 +285,7 @@ const WaiterDashboard = () => {
   );
 
   // ── CHECK-IN GATE ─────────────────────────────────────────────────────────
-  if (employee && employee.status !== 'ON_DUTY') return (
+  if (employee && employee.status !== 'ACTIVE') return (
     <TenantThemeProvider primaryColor={restaurant?.primary_color}>
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 px-4">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center space-y-5 max-w-xs w-full">
@@ -334,7 +334,7 @@ const WaiterDashboard = () => {
                 <p className="font-bold text-sm leading-none">{employee?.full_name || 'Waiter'}</p>
                 <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                  ON DUTY
+                  ACTIVE
                   {shiftStart && <span className="ml-1 opacity-60">· {shiftMins < 60 ? `${shiftMins}m` : `${Math.floor(shiftMins/60)}h ${shiftMins%60}m`}</span>}
                 </p>
               </div>
@@ -909,4 +909,21 @@ const WaiterDashboard = () => {
               )}
               <div className="flex gap-2 pt-1">
                 <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setShiftSummary(false)}>
-                  
+                  Continue Shift
+                </Button>
+                <Button className="flex-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold gap-1"
+                  onClick={confirmCheckOut} disabled={checkingIn}>
+                  {checkingIn ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
+                  Check Out
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </TenantThemeProvider>
+  );
+};
+
+export default WaiterDashboard;
+     
