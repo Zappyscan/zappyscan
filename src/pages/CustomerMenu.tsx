@@ -1694,6 +1694,7 @@ const CustomerMenu = () => {
             estimatedMinutes={estimatedPrepTime}
             currencySymbol={currencySymbol}
             onViewDetails={() => setCurrentView('orders')}
+            onAddMoreItems={() => setCurrentView('menu')}
           />
         </div>
       )}
@@ -2133,6 +2134,7 @@ const CustomerMenu = () => {
             order={activeOrder}
             estimatedMinutes={estimatedPrepTime}
             currencySymbol={currencySymbol}
+            onAddMoreItems={() => setCurrentView('menu')}
           />
         </div>
       )}
