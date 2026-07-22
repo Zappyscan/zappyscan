@@ -136,15 +136,17 @@ const WaiterDashboard = () => {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${restaurantId}` },
         (p: any) => {
           const o = p.new;
+          // Realtime payloads are raw rows — no JOIN data. Use table_id for filtering only.
           if (!assignedTableIds.length || assignedTableIds.includes(o.table_id)) {
-            toast({ title: '🛎 New order!', description: `Table ${(o.table as any)?.table_number || '?'} — review & confirm` });
+            toast({ title: '🛎 New order!', description: 'A new order needs your confirmation.' });
             setActiveTab('orders');
           }
         })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${restaurantId}` },
         (p: any) => {
           if (p.new.status === 'ready') {
-            toast({ title: '🍽 Food Ready!', description: `Table ${p.new.table_number || '?'} — serve now!`, duration: 8000 });
+            // table_number is not available in raw realtime payload (it's a JOIN column)
+            toast({ title: '🍽 Food Ready!', description: 'An order is ready — serve it now!', duration: 8000 });
           }
         })
       .subscribe();
@@ -281,6 +283,23 @@ const WaiterDashboard = () => {
   if (empLoading) return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <Loader2 className="w-8 h-8 animate-spin text-primary" />
+    </div>
+  );
+
+  // ── NO EMPLOYEE RECORD ────────────────────────────────────────────────────
+  if (!employee) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 px-4 text-center gap-5">
+      <AlertTriangle className="w-14 h-14 text-amber-400" />
+      <div>
+        <h2 className="text-xl font-black text-white">Account not set up</h2>
+        <p className="text-slate-400 text-sm mt-1 max-w-xs">
+          Your account doesn't have a staff profile for this restaurant.<br/>
+          Please contact your manager.
+        </p>
+      </div>
+      <Button variant="ghost" onClick={handleLogout} className="text-slate-400 gap-1">
+        <LogOut className="w-4 h-4" /> Sign Out
+      </Button>
     </div>
   );
 
@@ -926,4 +945,3 @@ const WaiterDashboard = () => {
 };
 
 export default WaiterDashboard;
-     
