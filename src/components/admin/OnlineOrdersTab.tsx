@@ -5,8 +5,10 @@ import { format, formatDistanceToNow } from "date-fns";
 import {
   Plus, RefreshCw, Loader2, Bike, Package, CheckCircle2,
   XCircle, Clock, ChefHat, Truck, Filter, TrendingUp,
-  IndianRupee, ShoppingBag, BarChart3,
+  IndianRupee, ShoppingBag, BarChart3, LayoutGrid, List,
 } from "lucide-react";
+import { PlatformOrderCard } from "@/components/admin/PlatformOrderCard";
+import { MenuSyncPanel } from "@/components/admin/MenuSyncPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -106,6 +108,7 @@ export function OnlineOrdersTab({ restaurantId }: { restaurantId: string }) {
   const [filterPlatform, setFilterPlatform] = useState<Platform | "all">("all");
   const [filterStatus, setFilterStatus] = useState<OrderStatus | "all">("all");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"card" | "table">("card");
 
   // ── Fetch ────────────────────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -276,16 +279,19 @@ export function OnlineOrdersTab({ restaurantId }: { restaurantId: string }) {
       </div>
 
       <Tabs defaultValue="orders" className="space-y-4">
-        <TabsList className="bg-muted/50 p-1 rounded-xl">
+        <div className="overflow-x-auto pb-1">
+        <TabsList className="bg-muted/50 p-1 rounded-xl min-w-max">
           <TabsTrigger value="orders" className="rounded-lg text-xs px-4">Live Orders</TabsTrigger>
-          <TabsTrigger value="analytics" className="rounded-lg text-xs px-4">Platform Analytics</TabsTrigger>
+          <TabsTrigger value="menu-sync" className="rounded-lg text-xs px-4">Menu Sync</TabsTrigger>
+          <TabsTrigger value="analytics" className="rounded-lg text-xs px-4">Analytics</TabsTrigger>
           <TabsTrigger value="integrations" className="rounded-lg text-xs px-4">API Integrations</TabsTrigger>
         </TabsList>
+        </div>
 
         {/* ── Orders tab ─────────────────────────────────────────────────── */}
         <TabsContent value="orders" className="space-y-4 outline-none">
-          {/* Filters */}
-          <div className="flex flex-wrap gap-2">
+          {/* Filters + view toggle */}
+          <div className="flex flex-wrap gap-2 items-center">
             <Select value={filterPlatform} onValueChange={v => setFilterPlatform(v as any)}>
               <SelectTrigger className="w-36 h-8 text-xs rounded-xl">
                 <SelectValue placeholder="Platform" />
@@ -304,6 +310,17 @@ export function OnlineOrdersTab({ restaurantId }: { restaurantId: string }) {
                 {STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
               </SelectContent>
             </Select>
+            {/* View toggle */}
+            <div className="flex items-center gap-1 ml-auto bg-muted/50 rounded-xl p-1">
+              <button
+                onClick={() => setViewMode("card")}
+                className={`p-1.5 rounded-lg transition-colors ${viewMode === "card" ? "bg-white dark:bg-zinc-800 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              ><LayoutGrid className="w-4 h-4" /></button>
+              <button
+                onClick={() => setViewMode("table")}
+                className={`p-1.5 rounded-lg transition-colors ${viewMode === "table" ? "bg-white dark:bg-zinc-800 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              ><List className="w-4 h-4" /></button>
+            </div>
           </div>
 
           {loading ? (
@@ -313,6 +330,17 @@ export function OnlineOrdersTab({ restaurantId }: { restaurantId: string }) {
               <Bike className="w-12 h-12 mx-auto mb-3 opacity-30" />
               <p className="font-semibold">No online orders yet</p>
               <p className="text-sm">Click "Log Order" to add an incoming delivery order</p>
+            </div>
+          ) : viewMode === "card" ? (
+            // ── Card view — with Accept/Reject/KOT buttons ──────────────
+            <div className="space-y-3">
+              {filtered.map(order => (
+                <PlatformOrderCard
+                  key={order.id}
+                  order={order as any}
+                  onRefresh={load}
+                />
+              ))}
             </div>
           ) : (
             <div className="overflow-x-auto rounded-2xl border">
@@ -409,6 +437,11 @@ export function OnlineOrdersTab({ restaurantId }: { restaurantId: string }) {
               </Table>
             </div>
           )}
+        </TabsContent>
+
+        {/* ── Menu Sync tab ──────────────────────────────────────────────── */}
+        <TabsContent value="menu-sync" className="outline-none">
+          <MenuSyncPanel restaurantId={restaurantId} />
         </TabsContent>
 
         {/* ── Analytics tab ──────────────────────────────────────────────── */}
