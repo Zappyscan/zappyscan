@@ -108,6 +108,7 @@ const WaiterDashboard = () => {
   // ── Take-order tab state ────────────────────────────────────────────────────
   const [orderCart, setOrderCart] = useState<CartItem[]>([]);
   const [orderTableId, setOrderTableId] = useState<string>('');
+  const [orderSeatNumber, setOrderSeatNumber] = useState<number | null>(null);
   const [orderCategoryId, setOrderCategoryId] = useState<string>('all');
   const [orderSearch, setOrderSearch] = useState('');
   const [orderCustomerName, setOrderCustomerName] = useState('');
@@ -147,6 +148,7 @@ const WaiterDashboard = () => {
         order: {
           restaurant_id: restaurantId,
           table_id: orderTableId,
+          seat_number: orderSeatNumber ?? undefined,
           status: 'confirmed' as any,  // waiter places → skip pending, go straight to kitchen
           total_amount: cartTotal,
           customer_name: orderCustomerName || 'Walk-in',
@@ -163,6 +165,7 @@ const WaiterDashboard = () => {
       toast({ title: '✅ Order sent to kitchen!' });
       setOrderCart([]);
       setOrderCustomerName('');
+      setOrderSeatNumber(null);
       setActiveTab('orders');
     } catch (e: any) {
       toast({ title: 'Failed to place order', description: e.message, variant: 'destructive' });
@@ -783,7 +786,7 @@ const WaiterDashboard = () => {
                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wide mb-1">Table *</p>
                     <select
                       value={orderTableId}
-                      onChange={e => setOrderTableId(e.target.value)}
+                      onChange={e => { setOrderTableId(e.target.value); setOrderSeatNumber(null); }}
                       className="w-full h-9 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary">
                       <option value="">Select table</option>
                       {myTables.map(t => (
@@ -801,6 +804,42 @@ const WaiterDashboard = () => {
                     />
                   </div>
                 </div>
+
+                {/* Seat selector — shown when a table is selected */}
+                {orderTableId && (() => {
+                  const selectedTable = myTables.find(t => t.id === orderTableId);
+                  const capacity = selectedTable?.capacity || 4;
+                  return (
+                    <div>
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wide mb-1.5">Seat</p>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {Array.from({ length: capacity }, (_, i) => i + 1).map(seat => (
+                          <button
+                            key={seat}
+                            onClick={() => setOrderSeatNumber(orderSeatNumber === seat ? null : seat)}
+                            className={cn(
+                              'w-9 h-9 rounded-xl text-sm font-black border transition-colors',
+                              orderSeatNumber === seat
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-primary'
+                            )}>
+                            {seat}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => setOrderSeatNumber(null)}
+                          className={cn(
+                            'px-3 h-9 rounded-xl text-xs font-bold border transition-colors',
+                            orderSeatNumber === null
+                              ? 'bg-muted text-foreground border-border'
+                              : 'bg-background text-muted-foreground border-border hover:border-primary/50'
+                          )}>
+                          Any
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Search bar */}
                 <div className="relative">

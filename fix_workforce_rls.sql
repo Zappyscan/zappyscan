@@ -64,4 +64,4 @@ BEGIN
   END IF;
 END $$;
 
-RAISE NOTICE 'All workforce RLS policies fixed with WITH CHECK!';
+DO $$ BEGIN RAISE NOTICE 'All workforce RLS policies fixed with WITH CHECK!'; END $$;
