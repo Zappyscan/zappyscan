@@ -373,16 +373,16 @@ Respond with ONLY a valid JSON object containing:
       transition={{ duration: 0.2 }}
       className="space-y-6"
     >
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="p-3 rounded-2xl bg-primary/10 text-primary">
-            <UtensilsCrossed className="w-6 h-6" />
+          <div className="p-2.5 sm:p-3 rounded-2xl bg-primary/10 text-primary shrink-0">
+            <UtensilsCrossed className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold tracking-tight">Menu Management</h2>
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Menu Management</h2>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {failedItems.length > 0 && !isCompletingMenu && (
             <Button 
               variant="outline" 
@@ -601,8 +601,8 @@ Respond with ONLY a valid JSON object containing:
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-3 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8">
+        <div className="lg:col-span-3 space-y-4 sm:space-y-6">
           <CategoryManager restaurantId={restaurantId} />
           
           <Card className="border-0 shadow-xl bg-gradient-to-br from-primary/5 to-transparent">
@@ -628,8 +628,8 @@ Respond with ONLY a valid JSON object containing:
           </Card>
         </div>
 
-        <div className="lg:col-span-9 space-y-6">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        <div className="lg:col-span-9 space-y-4 sm:space-y-6">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1">
             <Button
               variant={selectedAdminCategory === "All" ? "default" : "outline"}
               className="rounded-full px-6"
@@ -649,7 +649,7 @@ Respond with ONLY a valid JSON object containing:
             ))}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
             <AnimatePresence>
               {filteredMenuItems.map((item) => (
                 <MenuPreviewCard 

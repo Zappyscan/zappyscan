@@ -167,7 +167,7 @@ export function ReportsPanel({ restaurantId }: ReportsPanelProps) {
       </div>
 
       {/* Stats Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Card className="rounded-2xl border shadow-sm bg-gradient-to-br from-white to-slate-50/50 dark:from-zinc-950 dark:to-zinc-900/50">
           <CardContent className="p-5 flex items-center justify-between">
             <div>
@@ -218,7 +218,7 @@ export function ReportsPanel({ restaurantId }: ReportsPanelProps) {
       </div>
 
       {/* Main Audit Logs Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Logs List - Left 2 Columns */}
         <Card className="rounded-3xl border shadow-sm lg:col-span-2 flex flex-col overflow-hidden">
           <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-zinc-900/50">

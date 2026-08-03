@@ -554,7 +554,7 @@ const KitchenDashboard = ({ embedded = false, restaurantId: propRestaurantId }: 
 
           <TabsContent value="kitchen" className="m-0">
             {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
                 {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="space-y-4">
                     <div className="h-6 bg-muted rounded animate-pulse w-32" />
@@ -567,7 +567,7 @@ const KitchenDashboard = ({ embedded = false, restaurantId: propRestaurantId }: 
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
                 {columns.map((col) => (
                   <div key={col.title}>
                     <div className="flex items-center gap-2 mb-4 border-b pb-2">

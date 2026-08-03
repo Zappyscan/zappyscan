@@ -231,8 +231,8 @@ export function WaiterManagement({ restaurantId }: { restaurantId: string }) {
       {loading ? (
         <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>
       ) : (
-        <div className="border rounded-md">
-          <Table>
+        <div className="border rounded-md overflow-x-auto">
+          <Table className="min-w-[520px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>

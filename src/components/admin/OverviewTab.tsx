@@ -40,16 +40,16 @@ export function OverviewTab({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       transition={{ duration: 0.2 }}
-      className="space-y-6"
+      className="space-y-4 sm:space-y-6"
     >
       <DashboardStats orders={orders} currencySymbol={currencySymbol} />
-      
+
       {/* Active Table Sessions & Popular Items first */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         <div className="lg:col-span-2">
           <TableSessionTimers restaurantId={restaurantId} />
         </div>
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           <Card className="border-0 shadow-md">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg font-semibold">
@@ -73,20 +73,18 @@ export function OverviewTab({
       </div>
 
       {/* Recent Orders table */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-3">
-          <OrdersTable
-            orders={orders}
-            currencySymbol={currencySymbol}
-            onViewAll={onViewAllOrders}
-            limit={5}
-            showFilters={false}
-          />
-        </div>
+      <div className="overflow-x-auto rounded-xl">
+        <OrdersTable
+          orders={orders}
+          currencySymbol={currencySymbol}
+          onViewAll={onViewAllOrders}
+          limit={5}
+          showFilters={false}
+        />
       </div>
 
       {/* Visualizations last */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <RevenueChart orders={orders} currencySymbol={currencySymbol} days={7} />
         <RevenueTrends orders={orders} currencySymbol={currencySymbol} days={7} />
       </div>

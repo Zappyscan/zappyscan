@@ -279,20 +279,20 @@ export function StaffManagement({ restaurantId }: StaffManagementProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header Summary */}
-      <div className="flex justify-between items-center bg-card p-6 border rounded-3xl shadow-sm">
+      <div className="flex flex-wrap justify-between items-center gap-3 bg-card p-4 sm:p-6 border rounded-3xl shadow-sm">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Staff & Shifts</h2>
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Staff & Shifts</h2>
           <p className="text-sm text-muted-foreground">Manage employees, timetables, shifts, and attendance dashboards.</p>
         </div>
-        <Button onClick={loadData} variant="outline" className="rounded-xl gap-1.5">
+        <Button onClick={loadData} variant="outline" className="rounded-xl gap-1.5 shrink-0">
           <RefreshCw className="w-4 h-4" /> Refresh
         </Button>
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Card className="border-0 shadow-sm rounded-2xl bg-white dark:bg-zinc-950">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-500"><Clock className="w-5 h-5" /></div>
@@ -331,8 +331,9 @@ export function StaffManagement({ restaurantId }: StaffManagementProps) {
         </Card>
       </div>
 
-      <Tabs defaultValue="attendance" className="space-y-6">
-        <TabsList className="bg-muted/50 p-1 rounded-xl w-fit">
+      <Tabs defaultValue="attendance" className="space-y-4 sm:space-y-6">
+        <div className="overflow-x-auto pb-1">
+        <TabsList className="bg-muted/50 p-1 rounded-xl w-fit min-w-max">
           <TabsTrigger value="attendance" className="rounded-lg px-4 py-2 text-xs font-semibold gap-1.5">
             <CheckSquare className="w-4 h-4" /> Attendance Floor
           </TabsTrigger>
@@ -346,10 +347,11 @@ export function StaffManagement({ restaurantId }: StaffManagementProps) {
             <History className="w-4 h-4" /> Historical Logs
           </TabsTrigger>
         </TabsList>
+        </div>
 
         {/* 1. Attendance Floor Content */}
-        <TabsContent value="attendance" className="outline-none space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <TabsContent value="attendance" className="outline-none space-y-4 sm:space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             {/* Clock-in Simulator (Left 1 column) */}
             <Card className="border-0 shadow-sm rounded-3xl bg-white dark:bg-zinc-950">
               <CardHeader>
@@ -400,7 +402,8 @@ export function StaffManagement({ restaurantId }: StaffManagementProps) {
                 <CardTitle className="text-base font-bold">Currently On-Duty ({activeShiftEmployees.length})</CardTitle>
               </CardHeader>
               <CardContent>
-                <Table>
+                <div className="overflow-x-auto">
+                <Table className="min-w-[480px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Employee</TableHead>
@@ -442,14 +445,15 @@ export function StaffManagement({ restaurantId }: StaffManagementProps) {
                     )}
                   </TableBody>
                 </Table>
+                </div>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
         {/* 2. Shift Setup scheduler */}
-        <TabsContent value="shifts" className="outline-none space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <TabsContent value="shifts" className="outline-none space-y-4 sm:space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
             {/* Shift Form */}
             <Card className="lg:col-span-1 border-0 shadow-sm rounded-3xl bg-white dark:bg-zinc-950">
               <CardHeader>
@@ -519,7 +523,8 @@ export function StaffManagement({ restaurantId }: StaffManagementProps) {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <Table>
+                <div className="overflow-x-auto">
+                <Table className="min-w-[480px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Employee</TableHead>
@@ -549,6 +554,7 @@ export function StaffManagement({ restaurantId }: StaffManagementProps) {
                     )}
                   </TableBody>
                 </Table>
+                </div>
               </CardContent>
             </Card>
           </div>

@@ -98,8 +98,8 @@ export function OrdersTable({
             <p>No orders yet</p>
           </div>
         ) : (
-          <div className="rounded-lg border overflow-hidden">
-            <Table>
+          <div className="rounded-lg border overflow-x-auto">
+            <Table className="min-w-[600px]">
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead className="font-semibold">Order #</TableHead>

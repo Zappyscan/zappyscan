@@ -104,59 +104,59 @@ export function AdminHeader({
 
   return (
     <header className="sticky top-0 z-40 bg-card border-b">
-      <div className="flex items-center justify-between px-6 py-4">
-        <div className="flex items-center gap-4">
-          <SidebarTrigger />
+      <div className="flex items-center justify-between px-3 py-2.5 sm:px-6 sm:py-4 gap-2">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+          <SidebarTrigger className="shrink-0" />
           {animEnabled && branding?.mascot && branding.mascot !== "none" && (
-            <MascotIcon mascot={branding.mascot} size={36} primaryColor={primaryColor} customImageUrl={branding?.mascot_image_url} />
+            <MascotIcon mascot={branding.mascot} size={32} primaryColor={primaryColor} customImageUrl={branding?.mascot_image_url} />
           )}
           {logoUrl ? (
             <img
               src={logoUrl}
               alt={restaurantName}
-              className="w-10 h-10 rounded-xl object-cover border-2 border-primary/20 shadow-sm"
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl object-cover border-2 border-primary/20 shadow-sm shrink-0"
             />
           ) : (
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center font-bold text-primary text-lg">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary/10 flex items-center justify-center font-bold text-primary text-base sm:text-lg shrink-0">
               {restaurantName.charAt(0)}
             </div>
           )}
-          <div>
+          <div className="min-w-0">
             {animEnabled ? (
               <AnimatedHotelName
                 name={restaurantName}
                 animation={branding?.letter_animation || "bounce"}
                 speed={branding?.animation_speed || "normal"}
                 primaryColor={branding?.glow_color_sync ? primaryColor : undefined}
-                className="text-xl font-bold text-foreground"
+                className="text-base sm:text-xl font-bold text-foreground truncate"
               />
             ) : (
-              <h1 className="text-xl font-bold text-foreground">{restaurantName}</h1>
+              <h1 className="text-base sm:text-xl font-bold text-foreground truncate">{restaurantName}</h1>
             )}
-            <p className="text-sm text-muted-foreground">Manage your restaurant</p>
+            <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Manage your restaurant</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* Notification Bell */}
           <div className="relative" ref={panelRef}>
             <Button
               variant="ghost"
               size="icon"
-              className="relative rounded-xl"
+              className="relative rounded-xl h-8 w-8 sm:h-10 sm:w-10"
               onClick={() => { setOpen(o => !o); if (!open) markAllRead(); }}
               aria-label="Notifications"
             >
-              <Bell className={cn("w-5 h-5", unreadCount > 0 && "text-primary")} />
+              <Bell className={cn("w-4 h-4 sm:w-5 sm:h-5", unreadCount > 0 && "text-primary")} />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white animate-bounce">
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-destructive text-[9px] sm:text-[10px] font-bold text-white animate-bounce">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}
             </Button>
 
             {open && (
-              <div className="absolute right-0 top-12 w-80 rounded-2xl border bg-card shadow-xl z-50 overflow-hidden">
+              <div className="absolute right-0 top-10 sm:top-12 w-[calc(100vw-2rem)] max-w-sm sm:w-80 rounded-2xl border bg-card shadow-xl z-50 overflow-hidden">
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
                   <span className="font-semibold text-sm">Notifications</span>

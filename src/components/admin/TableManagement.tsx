@@ -458,7 +458,7 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
       </div>
 
       {/* Summary Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
         <Card className="bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 shadow-sm rounded-2xl">
           <CardContent className="p-4 flex flex-col justify-center">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Tables</span>
@@ -495,9 +495,9 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
         {/* Floor Visual Grid (Left 3 columns) */}
-        <div className="lg:col-span-3 space-y-6">
+        <div className="lg:col-span-3 space-y-4 sm:space-y-6">
           {/* Render Merged Tables first if any */}
           {mergedTables.length > 0 && (
             <Card className="border-2 border-dashed border-blue-200 bg-blue-50/20 rounded-3xl overflow-hidden">
