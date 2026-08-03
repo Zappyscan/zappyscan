@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion, AnimatePresence } from "framer-motion";
+import { PlatformIntegrations } from "@/components/admin/PlatformIntegrations";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -278,6 +279,7 @@ export function OnlineOrdersTab({ restaurantId }: { restaurantId: string }) {
         <TabsList className="bg-muted/50 p-1 rounded-xl">
           <TabsTrigger value="orders" className="rounded-lg text-xs px-4">Live Orders</TabsTrigger>
           <TabsTrigger value="analytics" className="rounded-lg text-xs px-4">Platform Analytics</TabsTrigger>
+          <TabsTrigger value="integrations" className="rounded-lg text-xs px-4">API Integrations</TabsTrigger>
         </TabsList>
 
         {/* ── Orders tab ─────────────────────────────────────────────────── */}
@@ -449,6 +451,11 @@ export function OnlineOrdersTab({ restaurantId }: { restaurantId: string }) {
               </div>
             )}
           </div>
+        </TabsContent>
+
+        {/* ── API Integrations tab ───────────────────────────────────────── */}
+        <TabsContent value="integrations" className="outline-none">
+          <PlatformIntegrations restaurantId={restaurantId} />
         </TabsContent>
       </Tabs>
 
