@@ -1771,6 +1771,22 @@ const CustomerMenu = () => {
         </Card>
       </div>
 
+      {/* Invite Friends — host only */}
+      {!isGroupGuest && seatSessionId && (
+        <button
+          onClick={() => setShowGroupSheet(true)}
+          className="w-full flex items-center gap-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl px-4 py-3.5 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors">
+          <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center shrink-0">
+            <UserPlus className="w-5 h-5 text-white" />
+          </div>
+          <div className="text-left">
+            <p className="font-bold text-sm text-emerald-800 dark:text-emerald-200">Invite Friends to Your Table</p>
+            <p className="text-xs text-emerald-600 dark:text-emerald-400">Share a link — one bill, everyone orders</p>
+          </div>
+          <Share2 className="w-4 h-4 text-emerald-500 ml-auto shrink-0" />
+        </button>
+      )}
+
       {/* Active Order */}
       {activeOrder && (
         <div>
@@ -1793,7 +1809,7 @@ const CustomerMenu = () => {
 
       {/* Search */}
       <div className="sticky top-[56px] z-30 bg-background pb-3 -mx-4 px-4 pt-2 transition-all duration-300">
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-2 mb-4">
           <div className="relative flex-1 flex items-center group">
             <Search className="absolute left-4 w-5 h-5 text-zinc-400 group-focus-within:text-emerald-500 transition-colors" />
             <Input
@@ -1807,6 +1823,15 @@ const CustomerMenu = () => {
               <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
             </svg>
           </div>
+          {/* Invite friends shortcut — host only */}
+          {!isGroupGuest && seatSessionId && (
+            <button
+              onClick={() => setShowGroupSheet(true)}
+              title="Invite friends to your table"
+              className="shrink-0 w-11 h-11 rounded-2xl bg-emerald-600 hover:bg-emerald-700 flex items-center justify-center shadow-md transition-colors">
+              <UserPlus className="w-5 h-5 text-white" />
+            </button>
+          )}
         </div>
 
         {/* Categories */}
@@ -2537,17 +2562,6 @@ const CustomerMenu = () => {
         />
       )}
 
-      {/* Invite Friends button — host only, visible on menu view */}
-      {!isGroupGuest && seatSessionId && currentView === 'search' && (
-        <div className="fixed bottom-20 right-4 z-40">
-          <button
-            onClick={() => setShowGroupSheet(true)}
-            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black px-3 py-2 rounded-full shadow-lg transition-colors">
-            <UserPlus className="w-3.5 h-3.5" />
-            Invite
-          </button>
-        </div>
-      )}
 
 
       {/* Floating Waiter FAB */}
