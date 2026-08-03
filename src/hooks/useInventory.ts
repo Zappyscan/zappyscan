@@ -40,7 +40,7 @@ export function useCreateInventoryItem() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (item: { restaurant_id: string; name: string; unit?: string; current_stock?: number; low_stock_threshold?: number }) => {
-      const { data, error } = await supabase.from("inventory_items").insert(item).select().single();
+      const { data, error } = await supabase.from("inventory_items").insert(item).select().maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -92,7 +92,7 @@ export function useCreateRecipeMapping() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (mapping: { menu_item_id: string; inventory_item_id: string; quantity_used: number }) => {
-      const { data, error } = await supabase.from("recipe_mappings").insert(mapping).select().single();
+      const { data, error } = await supabase.from("recipe_mappings").insert(mapping).select().maybeSingle();
       if (error) throw error;
       return data;
     },

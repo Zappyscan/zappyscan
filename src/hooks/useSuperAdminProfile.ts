@@ -31,7 +31,7 @@ export const useSuperAdminProfile = () => {
           .update(updates)
           .eq('user_id', user.id)
           .select()
-          .single();
+          .maybeSingle();
         if (error) throw error;
         return data;
       } else {
@@ -39,7 +39,7 @@ export const useSuperAdminProfile = () => {
           .from('super_admin_profile')
           .insert({ user_id: user.id, ...updates })
           .select()
-          .single();
+          .maybeSingle();
         if (error) throw error;
         return data;
       }

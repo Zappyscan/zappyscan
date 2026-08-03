@@ -185,7 +185,7 @@ export function useTrackAdImpression() {
         .from("ads")
         .select("restaurant_id")
         .eq("id", adId)
-        .single();
+        .maybeSingle();
       if (adError) throw adError;
 
       // Save to promotions_analytics
@@ -223,7 +223,7 @@ export function useTrackAdClick() {
         .from("ads")
         .select("restaurant_id")
         .eq("id", adId)
-        .single();
+        .maybeSingle();
       if (adError) throw adError;
 
       // Save to promotions_analytics

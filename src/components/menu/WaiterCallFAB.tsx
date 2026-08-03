@@ -100,7 +100,7 @@ export function WaiterCallFAB({ restaurantId, tableId, tableNumber, onDrawerStat
           seat_number: seatNumber || null
         } as any)
         .select()
-        .single();
+        .maybeSingle();
       
       if (error) throw error;
       return data;

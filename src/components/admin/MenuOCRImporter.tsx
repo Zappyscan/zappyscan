@@ -225,7 +225,7 @@ export function MenuOCRImporter({ restaurantId }: { restaurantId: string }) {
           .select('id')
           .eq('restaurant_id', restaurantId)
           .eq('name', name)
-          .single();
+          .maybeSingle();
         
         if (cat) {
           categoryMap[name] = cat.id;
@@ -234,7 +234,7 @@ export function MenuOCRImporter({ restaurantId }: { restaurantId: string }) {
             .from('categories')
             .insert({ restaurant_id: restaurantId, name, is_active: true })
             .select()
-            .single();
+            .maybeSingle();
           if (newCat) categoryMap[name] = newCat.id;
         }
       }

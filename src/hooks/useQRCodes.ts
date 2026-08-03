@@ -78,7 +78,7 @@ export function useCreateQRCode() {
         .from("qr_codes" as any)
         .insert(qr)
         .select()
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data as unknown as QRCode;
     },
@@ -101,7 +101,7 @@ export function useUpdateQRCode() {
         .update(updates)
         .eq("id", id)
         .select()
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data as unknown as QRCode;
     },

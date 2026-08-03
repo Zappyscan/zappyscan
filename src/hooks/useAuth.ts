@@ -84,7 +84,7 @@ export const useAuth = () => {
           .from('user_roles')
           .select('role, restaurant_id')
           .eq('user_id', session.user.id)
-          .single();
+          .maybeSingle();
 
         if (roleError) {
           console.warn('Failed to load user role during auth bootstrap:', roleError.message);
@@ -119,7 +119,7 @@ export const useAuth = () => {
               .from('user_roles')
               .select('role, restaurant_id')
               .eq('user_id', session.user.id)
-              .single();
+              .maybeSingle();
 
             const impersonatedId = localStorage.getItem('impersonated_restaurant_id');
             const actualRestId = roleData?.restaurant_id || null;

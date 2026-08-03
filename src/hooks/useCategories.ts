@@ -63,7 +63,7 @@ export function useCreateCategory() {
         .from("categories")
         .insert(category)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
@@ -84,7 +84,7 @@ export function useUpdateCategory() {
         .update(updates)
         .eq("id", id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;

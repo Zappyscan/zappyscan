@@ -20,7 +20,7 @@ export function useTableByNumber(restaurantId?: string, tableNumber?: string) {
         .eq("restaurant_id", restaurantId)
         .ilike("table_number", tableNumber)
         .eq("is_active", true)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error("Error fetching table by number:", error);
@@ -92,7 +92,7 @@ export function useTable(tableId?: string) {
         .from("tables")
         .select("*")
         .eq("id", tableId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data as Table;
@@ -124,7 +124,7 @@ export function useCreateTable() {
           .update({ ...table, is_active: true, deleted_at: null })
           .eq("id", existing.id)
           .select()
-          .single();
+          .maybeSingle();
         if (error) throw error;
         return data;
       }
@@ -134,7 +134,7 @@ export function useCreateTable() {
         .from("tables")
         .insert({ ...table, is_active: true, deleted_at: null })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
@@ -155,13 +155,13 @@ export function useUpdateTable() {
         .update(updates)
         .eq("id", id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["tables", data.restaurant_id] });
+      if (data) queryClient.invalidateQueries({ queryKey: ["tables", data.restaurant_id] });
     },
   });
 }
@@ -206,13 +206,13 @@ export function useUpdateTableStatus() {
         .update({ status })
         .eq("id", id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["tables", data.restaurant_id] });
+      if (data) queryClient.invalidateQueries({ queryKey: ["tables", data.restaurant_id] });
     },
   });
 }

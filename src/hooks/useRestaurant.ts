@@ -36,7 +36,7 @@ export function useRestaurantBySlug(slug?: string) {
         .from("restaurants_public")
         .select("*")
         .eq("slug", slug)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data as Restaurant;
@@ -72,7 +72,7 @@ export function useUpdateRestaurant() {
         .update(updates)
         .eq("id", id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return result;
@@ -93,7 +93,7 @@ export function useCreateRestaurant() {
         .from("restaurants")
         .insert(restaurant)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;

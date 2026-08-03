@@ -21,7 +21,7 @@ export function GoogleReviewsManager({ restaurantId }: { restaurantId: string })
         .from('restaurants')
         .select('*')
         .eq('id', restaurantId)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     }

@@ -59,7 +59,7 @@ export function useValidateCoupon(restaurantId?: string) {
         .eq("restaurant_id", restaurantId)
         .eq("code", code.toUpperCase())
         .eq("is_active", true)
-        .single();
+        .maybeSingle();
 
       if (error || !data) throw new Error("Invalid coupon code");
 
@@ -108,7 +108,7 @@ export function useCreateCoupon() {
         .from("coupons")
         .insert({ ...coupon, code: coupon.code.toUpperCase() })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
@@ -129,7 +129,7 @@ export function useUpdateCoupon() {
         .update(updates)
         .eq("id", id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
@@ -168,7 +168,7 @@ export function useIncrementCouponUsage() {
         .from("coupons")
         .select("usage_count")
         .eq("id", couponId)
-        .single();
+        .maybeSingle();
 
       if (fetchError) throw fetchError;
 

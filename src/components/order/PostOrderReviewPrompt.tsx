@@ -190,7 +190,7 @@ export const PostOrderReviewPrompt = ({
             .from('tables')
             .select('status, capacity')
             .eq('id', tableId)
-            .single();
+            .maybeSingle();
 
           if (tableData && tableData.status === 'full' && activeSeats.length < (tableData.capacity || 4)) {
             await supabase
@@ -257,7 +257,7 @@ export const PostOrderReviewPrompt = ({
         redirected_to_google: overallRating >= 4 && !!googleReviewUrl,
         source: 'qr',
         status: 'published'
-      }).select('id').single();
+      }).select('id').maybeSingle();
 
       if (revError) {
         console.error('Failed to save to enterprise_reviews:', revError);

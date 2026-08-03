@@ -100,7 +100,7 @@ export function useCreateEnterprisePromotion() {
           .from("enterprise_promotions" as any)
           .insert(promo as any)
           .select()
-          .single();
+          .maybeSingle();
         if (error) throw new Error(error.message || JSON.stringify(error));
         return data as EnterprisePromotion;
       } catch (err: any) {
@@ -116,7 +116,7 @@ export function useCreateEnterprisePromotion() {
             end_date: promo.end_date,
             is_active: promo.status === 'active',
           };
-          const { data, error } = await supabase.from("offers" as any).insert(legacy).select().single();
+          const { data, error } = await supabase.from("offers" as any).insert(legacy).select().maybeSingle();
           if (error) throw new Error(error.message || JSON.stringify(error));
           return data;
         }
@@ -140,7 +140,7 @@ export function useUpdateEnterprisePromotion() {
           .update(updates as any)
           .eq("id", id)
           .select()
-          .single();
+          .maybeSingle();
         if (error) throw new Error(error.message || JSON.stringify(error));
         return data as EnterprisePromotion;
       } catch (err: any) {
@@ -152,7 +152,7 @@ export function useUpdateEnterprisePromotion() {
            if (updates.description !== undefined) legacyUpdates.description = updates.description;
            if (updates.image_url !== undefined) legacyUpdates.image_url = updates.image_url;
            
-           const { data, error } = await supabase.from("offers" as any).update(legacyUpdates).eq("id", id).select().single();
+           const { data, error } = await supabase.from("offers" as any).update(legacyUpdates).eq("id", id).select().maybeSingle();
            if (error) throw error;
            return data;
         }

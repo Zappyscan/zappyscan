@@ -65,7 +65,7 @@ export function useCreateOffer() {
         .from("offers" as any)
         .insert(offer as any)
         .select()
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data as unknown as Offer;
     },
@@ -84,7 +84,7 @@ export function useUpdateOffer() {
         .update(updates as any)
         .eq("id", id)
         .select()
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data as unknown as Offer;
     },

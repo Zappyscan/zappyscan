@@ -123,7 +123,7 @@ export function CheckoutFlowModals({
         customer_name: customerName.trim() || null,
         source: "qr",
         status: "published"
-      }).select("id").single();
+      }).select("id").maybeSingle();
 
       if (revData?.id) {
         const sentiment = overallRating >= 4 ? "positive" : (overallRating === 3 ? "neutral" : "negative");

@@ -92,7 +92,7 @@ export function useOrder(orderId?: string) {
           table:tables(id, table_number)
         `)
         .eq("id", orderId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data as OrderWithItems;
@@ -144,9 +144,10 @@ export function useCreateOrder() {
         .from("orders")
         .insert(order)
         .select()
-        .single();
+        .maybeSingle();
 
       if (orderError) throw orderError;
+      if (!orderData) throw new Error("Order creation failed — please try again");
 
       // Insert order items
       const orderItems = items.map((item) => ({
@@ -203,14 +204,16 @@ export function useUpdateOrderStatus() {
         .update({ status })
         .eq("id", id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["orders", data.restaurant_id] });
-      queryClient.invalidateQueries({ queryKey: ["order", data.id] });
+      if (data) {
+        queryClient.invalidateQueries({ queryKey: ["orders", data.restaurant_id] });
+        queryClient.invalidateQueries({ queryKey: ["order", data.id] });
+      }
     },
   });
 }
@@ -237,14 +240,16 @@ export function useUpdateOrderPayment() {
         })
         .eq("id", id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["orders", data.restaurant_id] });
-      queryClient.invalidateQueries({ queryKey: ["order", data.id] });
+      if (data) {
+        queryClient.invalidateQueries({ queryKey: ["orders", data.restaurant_id] });
+        queryClient.invalidateQueries({ queryKey: ["order", data.id] });
+      }
     },
   });
 }
@@ -264,7 +269,7 @@ export function useKitchenOrderActions(restaurantId?: string) {
           .from("orders")
           .select("table_session_id")
           .eq("id", orderId)
-          .single();
+          .maybeSingle();
 
         const { error } = await supabase
           .from("orders")
@@ -301,7 +306,7 @@ export function useKitchenOrderActions(restaurantId?: string) {
           .from("orders")
           .select("table_session_id")
           .eq("id", orderId)
-          .single();
+          .maybeSingle();
 
         // 2. Mark order ready
         const { error } = await supabase
@@ -339,7 +344,7 @@ export function useKitchenOrderActions(restaurantId?: string) {
           .from("orders")
           .select("table_session_id")
           .eq("id", orderId)
-          .single();
+          .maybeSingle();
 
         // 2. Mark order served
         const { error } = await supabase

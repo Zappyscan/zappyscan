@@ -112,7 +112,7 @@ export function useCreateTableSession() {
           seated_at: new Date().toISOString(),
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
@@ -133,7 +133,7 @@ export function useUpdateTableSession() {
         .update(updates)
         .eq("id", id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;

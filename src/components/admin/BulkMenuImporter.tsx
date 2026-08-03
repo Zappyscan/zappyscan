@@ -123,7 +123,7 @@ export default function BulkMenuImporter({ restaurantId, onSuccess, onClose }: B
           .select("id")
           .eq("restaurant_id", restaurantId)
           .eq("name", name)
-          .single();
+          .maybeSingle();
         
         if (cat) {
           categoryMap[name] = cat.id;
@@ -132,7 +132,7 @@ export default function BulkMenuImporter({ restaurantId, onSuccess, onClose }: B
             .from("categories")
             .insert({ restaurant_id: restaurantId, name, is_active: true })
             .select()
-            .single();
+            .maybeSingle();
           if (newCat) categoryMap[name] = newCat.id;
         }
       }

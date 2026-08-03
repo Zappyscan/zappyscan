@@ -40,7 +40,7 @@ const FeedbackPage = () => {
         .from('restaurants_public')
         .select('name, google_review_url')
         .eq('id', restaurantId)
-        .single();
+        .maybeSingle();
       
       if (data) {
         setRestaurant(data);
@@ -116,7 +116,7 @@ const FeedbackPage = () => {
         redirected_to_google: rating >= 4 && !!restaurant?.google_review_url,
         source: 'qr',
         status: 'published'
-      }).select('id').single();
+      }).select('id').maybeSingle();
 
       if (revError) {
         console.error('Failed to save to enterprise_reviews:', revError);

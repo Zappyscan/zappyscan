@@ -49,7 +49,7 @@ function useDemoRestaurant() {
         .from('restaurants_public')
         .select('*')
         .eq('id', DEMO_RESTAURANT_ID)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },

@@ -117,14 +117,15 @@ export function useCreateMenuItem() {
         .from("menu_items")
         .insert(item)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
     },
     onSuccess: (data) => {
+      if (!data) return;
       queryClient.invalidateQueries({ queryKey: ["menu_items", data.restaurant_id] });
-      
+
       debouncedEmbedding(data.id, data.name, data.description || "", data.restaurant_id)
         .catch(() => {});
 
@@ -170,12 +171,13 @@ export function useUpdateMenuItem() {
         .update(updates)
         .eq("id", id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
     },
     onSuccess: (data) => {
+      if (!data) return;
       queryClient.invalidateQueries({ queryKey: ["menu_items", data.restaurant_id] });
 
       debouncedEmbedding(data.id, data.name, data.description || "", data.restaurant_id)
@@ -227,12 +229,13 @@ export function useToggleMenuItemAvailability() {
         .update({ is_available: isAvailable })
         .eq("id", id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
     },
     onSuccess: (data) => {
+      if (!data) return;
       queryClient.invalidateQueries({ queryKey: ["menu_items", data.restaurant_id] });
       logActivity({
         restaurantId: data.restaurant_id,

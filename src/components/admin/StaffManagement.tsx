@@ -151,7 +151,7 @@ export function StaffManagement({ restaurantId }: StaffManagementProps) {
           expected_hours: diffHrs > 0 ? diffHrs : 8
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
@@ -208,7 +208,7 @@ export function StaffManagement({ restaurantId }: StaffManagementProps) {
           login_time: new Date().toISOString()
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (attError) throw attError;
 
@@ -257,7 +257,7 @@ export function StaffManagement({ restaurantId }: StaffManagementProps) {
         })
         .eq("id", attendance.id)
         .select()
-        .single();
+        .maybeSingle();
 
       toast({ title: "Clocked Out", description: `Clocked out successfully. Duration: ${Math.round(worked / 60)} hrs.` });
       loadData();

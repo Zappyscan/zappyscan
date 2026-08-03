@@ -52,7 +52,7 @@ export async function checkTokenBudget(
       .from("restaurants")
       .select("subscription_tier")
       .eq("id", restaurantId)
-      .single();
+      .maybeSingle();
     const tier = restaurant?.subscription_tier || "free";
     if (tier === "free") { budget.daily = 50_000; budget.monthly = 500_000; }
     else if (tier === "basic") { budget.daily = 100_000; budget.monthly = 1_000_000; }

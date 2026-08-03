@@ -78,7 +78,7 @@ export function TenantBrandingProvider({ restaurantId, children, restaurant: pre
       .from('restaurants_public')
       .select('name, logo_url, favicon_url, banner_image_url, cover_image_url, primary_color, secondary_color, font_family, menu_title, theme_config')
       .eq('id', restaurantId)
-      .single()
+      .maybeSingle()
       .then(({ data }) => {
         if (data) {
           setBranding({

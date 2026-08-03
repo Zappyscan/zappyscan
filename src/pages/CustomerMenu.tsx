@@ -87,9 +87,9 @@ const CustomerMenu = () => {
   useEffect(() => {
     const idToUse = restaurantIdParam && UUID_REGEX.test(restaurantIdParam) ? restaurantIdParam : undefined;
     const query = slug && !restaurantIdParam
-      ? supabase.from('restaurants_public').select('id, name, logo_url, primary_color').eq('slug', slug).eq('is_active', true).single()
+      ? supabase.from('restaurants_public').select('id, name, logo_url, primary_color').eq('slug', slug).eq('is_active', true).maybeSingle()
       : idToUse
-      ? supabase.from('restaurants_public').select('id, name, logo_url, primary_color').eq('id', idToUse).single()
+      ? supabase.from('restaurants_public').select('id, name, logo_url, primary_color').eq('id', idToUse).maybeSingle()
       : null;
 
     if (query) {
@@ -427,7 +427,7 @@ const CustomerMenu = () => {
         .from('restaurants_public')
         .select('*')
         .eq('id', restaurantId)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -729,7 +729,7 @@ const CustomerMenu = () => {
           seated_at: new Date().toISOString(),
         })
         .select()
-        .single();
+        .maybeSingle();
       if (error) throw error;
 
       // Also mark these seats as occupied in the seat_occupancy table

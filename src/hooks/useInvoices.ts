@@ -157,7 +157,7 @@ export function useCreateInvoice() {
           items: invoice.items as unknown as Json,
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return transformInvoice(data as Record<string, unknown>);
@@ -180,7 +180,7 @@ export function useMarkInvoicePrinted() {
         .update({ printed: true })
         .eq("id", invoiceId)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return transformInvoice(data as Record<string, unknown>);

@@ -213,7 +213,7 @@ export function useAtomicBilling(restaurantId?: string) {
           notes: params.notes,
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (invoiceError) throw invoiceError;
       return invoice;

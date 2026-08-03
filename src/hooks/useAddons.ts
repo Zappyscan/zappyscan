@@ -45,7 +45,7 @@ export function useCreateAddonGroup() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (group: { restaurant_id: string; name: string; min_select?: number; max_select?: number }) => {
-      const { data, error } = await supabase.from("addon_groups").insert(group).select().single();
+      const { data, error } = await supabase.from("addon_groups").insert(group).select().maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -69,7 +69,7 @@ export function useCreateAddonOption() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (option: { addon_group_id: string; name: string; price?: number; display_order?: number }) => {
-      const { data, error } = await supabase.from("addon_options").insert(option).select().single();
+      const { data, error } = await supabase.from("addon_options").insert(option).select().maybeSingle();
       if (error) throw error;
       return data;
     },

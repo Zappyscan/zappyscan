@@ -246,7 +246,7 @@ export async function verifyAICallEligibility(
       .from("restaurants")
       .select("subscription_tier")
       .eq("id", restaurantId)
-      .single();
+      .maybeSingle();
 
     const currentTier = restaurant?.subscription_tier || "free";
     const tierRanks: Record<string, number> = { free: 0, basic: 1, pro: 2, enterprise: 3 };

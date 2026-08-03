@@ -30,7 +30,7 @@ export default function QRRedirect() {
           .from("qr_codes")
           .select("*")
           .eq("id", id)
-          .single();
+          .maybeSingle();
 
         if (fetchError || !qrCode || !qrCode.is_active) {
           setError("This QR code is inactive or does not exist.");

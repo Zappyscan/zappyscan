@@ -73,7 +73,7 @@ export const RatingPopup = ({
         redirected_to_google: rating >= 4 && !!googleReviewUrl,
         source: 'qr',
         status: 'published'
-      }).select('id').single();
+      }).select('id').maybeSingle();
 
       if (revError) {
         console.error('Failed to save to enterprise_reviews:', revError);

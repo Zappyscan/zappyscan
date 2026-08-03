@@ -111,7 +111,7 @@ export function WaiterManagement({ restaurantId }: { restaurantId: string }) {
       }
 
       // Get restaurant slug
-      const { data: restData } = await supabase.from('restaurants').select('slug').eq('id', restaurantId).single();
+      const { data: restData } = await supabase.from('restaurants').select('slug').eq('id', restaurantId).maybeSingle();
       const slug = restData?.slug || restaurantId.substring(0,8);
 
       // Create user via Supabase Edge Function to bypass rate limits

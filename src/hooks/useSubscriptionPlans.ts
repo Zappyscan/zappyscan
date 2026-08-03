@@ -18,7 +18,7 @@ export const useSubscriptionPlans = () => {
 
   const createMutation = useMutation({
     mutationFn: async (plan: any) => {
-      const { data, error } = await supabase.from('subscription_plans').insert(plan).select().single();
+      const { data, error } = await supabase.from('subscription_plans').insert(plan).select().maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -27,7 +27,7 @@ export const useSubscriptionPlans = () => {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: any }) => {
-      const { data, error } = await supabase.from('subscription_plans').update(updates).eq('id', id).select().single();
+      const { data, error } = await supabase.from('subscription_plans').update(updates).eq('id', id).select().maybeSingle();
       if (error) throw error;
       return data;
     },

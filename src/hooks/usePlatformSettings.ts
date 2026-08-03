@@ -11,7 +11,7 @@ export const usePlatformSettings = () => {
         .from('platform_settings')
         .select('*')
         .limit(1)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -23,7 +23,7 @@ export const usePlatformSettings = () => {
         .from('platform_settings')
         .select('id')
         .limit(1)
-        .single();
+        .maybeSingle();
       if (!existing) throw new Error('No settings found');
 
       const { data, error } = await supabase
@@ -31,7 +31,7 @@ export const usePlatformSettings = () => {
         .update(updates)
         .eq('id', existing.id)
         .select()
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },

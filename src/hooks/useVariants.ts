@@ -72,7 +72,7 @@ export function useCreateVariantGroup() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (group: { menu_item_id: string; name: string; is_required?: boolean; min_select?: number; max_select?: number; display_order?: number }) => {
-      const { data, error } = await supabase.from("variant_groups").insert(group).select().single();
+      const { data, error } = await supabase.from("variant_groups").insert(group).select().maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -96,7 +96,7 @@ export function useCreateVariantOption() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (option: { variant_group_id: string; name: string; price_modifier?: number; display_order?: number }) => {
-      const { data, error } = await supabase.from("variant_options").insert(option).select().single();
+      const { data, error } = await supabase.from("variant_options").insert(option).select().maybeSingle();
       if (error) throw error;
       return data;
     },

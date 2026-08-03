@@ -38,7 +38,7 @@ export const ReputationManager = ({ restaurantId }: { restaurantId: string }) =>
         .from('restaurants')
         .select('subscription_tier')
         .eq('id', restaurantId)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     }

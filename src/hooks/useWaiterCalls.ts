@@ -81,7 +81,7 @@ export function useCreateWaiterCall() {
         .from("waiter_calls")
         .insert(call)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
@@ -106,7 +106,7 @@ export function useAcknowledgeWaiterCall() {
         })
         .eq("id", id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
@@ -130,7 +130,7 @@ export function useResolveWaiterCall() {
         })
         .eq("id", id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;

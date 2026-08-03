@@ -109,7 +109,7 @@ export async function analyzeReviewSentiment(
       .from("restaurants")
       .select("name, subscription_tier")
       .eq("id", restaurantId)
-      .single();
+      .maybeSingle();
     if (restaurant) {
       restaurantName = restaurant.name || restaurantName;
       subscriptionTier = restaurant.subscription_tier || "free";
