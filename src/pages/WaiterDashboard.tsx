@@ -5,15 +5,18 @@ import {
   ClipboardList, Table2, ChefHat, Check, X, Clock,
   ShoppingBag, Receipt, Loader2, Eye, AlertTriangle,
   PhoneCall, Users, Banknote, CheckCircle2, AlertCircle,
-  Play, TrendingUp, Utensils, Star,
+  Play, TrendingUp, Utensils, Star, Plus, Minus, ShoppingCart,
+  Search, Trash2, Send,
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useTables } from '@/hooks/useTables';
-import { useOrders, useUpdateOrderStatus } from '@/hooks/useOrders';
+import { useOrders, useUpdateOrderStatus, useCreateOrder } from '@/hooks/useOrders';
+import { useMenuItems, useCategories } from '@/hooks/useMenuItems';
 import { usePendingWaiterCalls, useAcknowledgeWaiterCall, useResolveWaiterCall } from '@/hooks/useWaiterCalls';
 import { useAuth } from '@/hooks/useAuth';
 import { useRestaurantDetails } from '@/hooks/useRestaurant';
@@ -44,7 +47,15 @@ const tableTimeColor = (mins: number) =>
 const tableTimeBg = (mins: number) =>
   mins < 30 ? 'border-emerald-300 bg-emerald-50' : mins < 60 ? 'border-amber-300 bg-amber-50' : 'border-red-300 bg-red-50';
 
-type Tab = 'tables' | 'orders' | 'bills' | 'calls';
+type Tab = 'tables' | 'orders' | 'bills' | 'calls' | 'order';
+
+// ─── Cart item type ────────────────────────────────────────────────────────────
+interface CartItem {
+  menuItemId: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
 
 // ─── Voice Player ─────────────────────────────────────────────────────────────
 const VoicePlayer = ({ url }: { url: string }) => {
@@ -93,6 +104,71 @@ const WaiterDashboard = () => {
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [shiftSummary, setShiftSummary] = useState(false);
   const [shiftStats, setShiftStats] = useState({ served: 0, orders: 0, tables: 0 });
+
+  // ── Take-order tab state ────────────────────────────────────────────────────
+  const [orderCart, setOrderCart] = useState<CartItem[]>([]);
+  const [orderTableId, setOrderTableId] = useState<string>('');
+  const [orderCategoryId, setOrderCategoryId] = useState<string>('all');
+  const [orderSearch, setOrderSearch] = useState('');
+  const [orderCustomerName, setOrderCustomerName] = useState('');
+  const [placingOrder, setPlacingOrder] = useState(false);
+
+  const { data: menuItems = [] } = useMenuItems(restaurantId);
+  const { data: categories = [] } = useCategories(restaurantId);
+  const createOrderMutation = useCreateOrder();
+
+  const cartTotal = orderCart.reduce((s, i) => s + i.price * i.quantity, 0);
+  const cartCount = orderCart.reduce((s, i) => s + i.quantity, 0);
+
+  const addToCart = (item: { id: string; name: string; price: number }) => {
+    setOrderCart(prev => {
+      const existing = prev.find(c => c.menuItemId === item.id);
+      if (existing) return prev.map(c => c.menuItemId === item.id ? { ...c, quantity: c.quantity + 1 } : c);
+      return [...prev, { menuItemId: item.id, name: item.name, price: Number(item.price), quantity: 1 }];
+    });
+  };
+
+  const removeFromCart = (id: string) => {
+    setOrderCart(prev => {
+      const existing = prev.find(c => c.menuItemId === id);
+      if (!existing) return prev;
+      if (existing.quantity === 1) return prev.filter(c => c.menuItemId !== id);
+      return prev.map(c => c.menuItemId === id ? { ...c, quantity: c.quantity - 1 } : c);
+    });
+  };
+
+  const placeWaiterOrder = async () => {
+    if (!restaurantId || !orderTableId || orderCart.length === 0) {
+      toast({ title: 'Select a table and add items first', variant: 'destructive' }); return;
+    }
+    setPlacingOrder(true);
+    try {
+      await createOrderMutation.mutateAsync({
+        order: {
+          restaurant_id: restaurantId,
+          table_id: orderTableId,
+          status: 'confirmed' as any,  // waiter places → skip pending, go straight to kitchen
+          total_amount: cartTotal,
+          customer_name: orderCustomerName || 'Walk-in',
+          payment_status: 'pending',
+        },
+        items: orderCart.map(c => ({
+          menu_item_id: c.menuItemId,
+          name: c.name,
+          price: c.price,
+          quantity: c.quantity,
+          restaurant_id: restaurantId,
+        })),
+      });
+      toast({ title: '✅ Order sent to kitchen!' });
+      setOrderCart([]);
+      setOrderCustomerName('');
+      setActiveTab('orders');
+    } catch (e: any) {
+      toast({ title: 'Failed to place order', description: e.message, variant: 'destructive' });
+    }
+    setPlacingOrder(false);
+  };
 
   const acknowledgeMutation = useAcknowledgeWaiterCall();
   const resolveMutation = useResolveWaiterCall();
@@ -212,6 +288,7 @@ const WaiterDashboard = () => {
   const tabBadge: Record<Tab, number> = {
     orders: urgentCount,
     tables: 0,
+    order: cartCount,
     bills: billCalls.length,
     calls: assistCalls.length,
   };
@@ -695,6 +772,156 @@ const WaiterDashboard = () => {
                 )}
               </motion.div>
             )}
+
+            {/* ══ TAKE ORDER TAB ══════════════════════════════════════════════ */}
+            {activeTab === 'order' && (
+              <motion.div key="order" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3 pb-4">
+
+                {/* Table selector + customer name */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wide mb-1">Table *</p>
+                    <select
+                      value={orderTableId}
+                      onChange={e => setOrderTableId(e.target.value)}
+                      className="w-full h-9 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary">
+                      <option value="">Select table</option>
+                      {myTables.map(t => (
+                        <option key={t.id} value={t.id}>{t.table_number}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wide mb-1">Customer</p>
+                    <Input
+                      className="h-9 rounded-xl text-sm"
+                      placeholder="Name (optional)"
+                      value={orderCustomerName}
+                      onChange={e => setOrderCustomerName(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Search bar */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <Input
+                    className="pl-8 h-9 rounded-xl text-sm"
+                    placeholder="Search menu…"
+                    value={orderSearch}
+                    onChange={e => setOrderSearch(e.target.value)}
+                  />
+                </div>
+
+                {/* Category filter */}
+                <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                  {[{ id: 'all', name: 'All' }, ...categories].map((cat: any) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setOrderCategoryId(cat.id)}
+                      className={cn(
+                        'shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border transition-colors',
+                        orderCategoryId === cat.id
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-background text-muted-foreground border-border hover:border-primary/50'
+                      )}>
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Menu items */}
+                <div className="space-y-2">
+                  {menuItems
+                    .filter(item => {
+                      if (!item.is_available) return false;
+                      if (orderCategoryId !== 'all' && item.category_id !== orderCategoryId) return false;
+                      if (orderSearch && !item.name.toLowerCase().includes(orderSearch.toLowerCase())) return false;
+                      return true;
+                    })
+                    .map(item => {
+                      const cartItem = orderCart.find(c => c.menuItemId === item.id);
+                      return (
+                        <div key={item.id} className="flex items-center gap-3 bg-card border rounded-xl px-3 py-2.5">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold truncate">{item.name}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-xs font-black text-primary">₹{Number(item.price).toFixed(0)}</span>
+                              {item.is_vegetarian && (
+                                <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded px-1">VEG</span>
+                              )}
+                              {item.is_popular && (
+                                <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 rounded px-1">★ POPULAR</span>
+                              )}
+                            </div>
+                          </div>
+                          {cartItem ? (
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => removeFromCart(item.id)}
+                                className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center hover:bg-muted/70">
+                                <Minus className="w-3.5 h-3.5" />
+                              </button>
+                              <span className="w-6 text-center text-sm font-black">{cartItem.quantity}</span>
+                              <button onClick={() => addToCart({ id: item.id, name: item.name, price: Number(item.price) })}
+                                className="w-7 h-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90">
+                                <Plus className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button onClick={() => addToCart({ id: item.id, name: item.name, price: Number(item.price) })}
+                              className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/30 text-primary flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors">
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  {menuItems.filter(i => i.is_available &&
+                    (orderCategoryId === 'all' || i.category_id === orderCategoryId) &&
+                    (!orderSearch || i.name.toLowerCase().includes(orderSearch.toLowerCase()))
+                  ).length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground text-sm">No items found</div>
+                  )}
+                </div>
+
+                {/* Cart summary */}
+                {orderCart.length > 0 && (
+                  <div className="sticky bottom-20 z-10 rounded-2xl border-2 border-primary bg-card shadow-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <ShoppingCart className="w-4 h-4 text-primary" />
+                        <span className="font-black text-sm">{cartCount} item{cartCount > 1 ? 's' : ''}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-primary text-base">₹{cartTotal.toFixed(0)}</span>
+                        <button onClick={() => setOrderCart([])}
+                          className="text-destructive hover:bg-destructive/10 rounded-lg p-1">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    {/* Cart items preview */}
+                    <div className="space-y-1 max-h-28 overflow-y-auto">
+                      {orderCart.map(c => (
+                        <div key={c.menuItemId} className="flex justify-between text-xs text-muted-foreground">
+                          <span className="truncate">{c.name} ×{c.quantity}</span>
+                          <span className="font-semibold shrink-0 ml-2">₹{(c.price * c.quantity).toFixed(0)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      className="w-full rounded-xl h-10 gap-2 font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={placeWaiterOrder}
+                      disabled={!orderTableId || placingOrder}>
+                      {placingOrder
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <Send className="w-4 h-4" />}
+                      {!orderTableId ? 'Select a table first' : 'Send to Kitchen'}
+                    </Button>
+                  </div>
+                )}
+              </motion.div>
+            )}
           </AnimatePresence>
         </main>
 
@@ -703,7 +930,8 @@ const WaiterDashboard = () => {
           <div className="flex">
             {([
               { id: 'orders', icon: ClipboardList, label: 'Orders' },
-              { id: 'tables', icon: Table2, label: 'Tables' },
+              { id: 'tables', icon: Table2,       label: 'Tables' },
+              { id: 'order',  icon: ShoppingCart, label: 'Take Order' },
               { id: 'bills',  icon: Receipt,      label: 'Bills' },
               { id: 'calls',  icon: Bell,         label: 'Calls' },
             ] as { id: Tab; icon: any; label: string }[]).map(tab => {
