@@ -340,53 +340,61 @@ export const CategoryManager = ({ restaurantId }: CategoryManagerProps) => {
               return (
                 <div
                   key={cat.id}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-card hover:bg-muted/40 transition-colors"
+                  className="rounded-lg border bg-card hover:bg-muted/40 transition-colors"
                 >
-                  {/* Index */}
-                  <span className="text-xs font-bold text-muted-foreground w-5 text-center shrink-0">
-                    {index + 1}
-                  </span>
+                  {/* Main row */}
+                  <div className="flex items-center gap-2 px-3 py-2">
+                    {/* Index */}
+                    <span className="text-xs font-bold text-muted-foreground w-5 text-center shrink-0">
+                      {index + 1}
+                    </span>
 
-                  {/* Image */}
-                  <CategoryImageUpload
-                    categoryId={cat.id}
-                    restaurantId={restaurantId}
-                    currentUrl={cat.image_url ?? null}
-                    onUploaded={(url) => handleImageUploaded(cat.id, url)}
-                  />
+                    {/* Image */}
+                    <CategoryImageUpload
+                      categoryId={cat.id}
+                      restaurantId={restaurantId}
+                      currentUrl={cat.image_url ?? null}
+                      onUploaded={(url) => handleImageUploaded(cat.id, url)}
+                    />
 
-                  {/* Name + schedule badge */}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{cat.name}</p>
-                    {hasSchedule && (
-                      <p className="text-[11px] text-primary flex items-center gap-1 mt-0.5">
-                        <Clock className="w-3 h-3" />
-                        {fmtTime(cat.available_from)} – {fmtTime(cat.available_until)}
-                      </p>
-                    )}
+                    {/* Name — full width, wraps if needed */}
+                    <span className="flex-1 font-medium text-sm leading-snug">
+                      {cat.name}
+                    </span>
+
+                    {/* Clock button */}
+                    <Button
+                      size="icon"
+                      variant={hasSchedule ? "outline" : "ghost"}
+                      className={`h-7 w-7 shrink-0 ${hasSchedule ? "text-primary border-primary/40" : "text-muted-foreground"}`}
+                      title={hasSchedule ? "Edit schedule" : "Set availability hours"}
+                      onClick={() => setScheduleTarget(cat)}
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                    </Button>
+
+                    {/* Delete */}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-destructive hover:text-destructive shrink-0"
+                      onClick={() => handleDelete(cat)}
+                      disabled={deleteCategory.isPending}
+                    >
+                      {deleteCategory.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    </Button>
                   </div>
 
-                  {/* Clock button */}
-                  <Button
-                    size="icon"
-                    variant={hasSchedule ? "outline" : "ghost"}
-                    className={`h-8 w-8 shrink-0 ${hasSchedule ? "text-primary border-primary/30 hover:border-primary/60" : ""}`}
-                    title={hasSchedule ? "Edit schedule" : "Set availability hours"}
-                    onClick={() => setScheduleTarget(cat)}
-                  >
-                    <Clock className="w-4 h-4" />
-                  </Button>
-
-                  {/* Delete */}
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 text-destructive hover:text-destructive shrink-0"
-                    onClick={() => handleDelete(cat)}
-                    disabled={deleteCategory.isPending}
-                  >
-                    {deleteCategory.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                  </Button>
+                  {/* Schedule pill — shown under the row when set */}
+                  {hasSchedule && (
+                    <button
+                      onClick={() => setScheduleTarget(cat)}
+                      className="flex items-center gap-1 mx-3 mb-2 text-[11px] font-semibold text-primary bg-primary/8 border border-primary/20 rounded-full px-2.5 py-0.5 w-fit hover:bg-primary/15 transition-colors"
+                    >
+                      <Clock className="w-3 h-3" />
+                      {fmtTime(cat.available_from)} – {fmtTime(cat.available_until)}
+                    </button>
+                  )}
                 </div>
               );
             })}
