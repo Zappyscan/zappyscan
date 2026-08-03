@@ -7,14 +7,19 @@ import {
   ImageIcon,
   Camera,
   Clock,
-  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   useCategories,
   useCreateCategory,
@@ -23,7 +28,6 @@ import {
   type Category,
 } from "@/hooks/useCategories";
 
-// Extended type for schedule fields not yet in generated types
 type CategoryWithSchedule = Category & {
   available_from?: string | null;
   available_until?: string | null;
@@ -66,7 +70,7 @@ function CategoryImageUpload({
       if (error) throw error;
       const { data: urlData } = supabase.storage.from("menu-images").getPublicUrl(data.path);
       onUploaded(urlData.publicUrl + `?t=${Date.now()}`);
-      toast({ title: "Image uploaded successfully" });
+      toast({ title: "Image uploaded" });
     } catch (err: any) {
       toast({ title: "Upload failed", description: err.message, variant: "destructive" });
     } finally {
@@ -82,7 +86,7 @@ function CategoryImageUpload({
         type="button"
         onClick={() => fileRef.current?.click()}
         disabled={uploading}
-        className="relative w-12 h-12 rounded-lg overflow-hidden border-2 border-dashed border-border hover:border-primary transition-all bg-muted/55 hover:bg-primary/5 flex items-center justify-center"
+        className="relative w-10 h-10 rounded-lg overflow-hidden border-2 border-dashed border-border hover:border-primary transition-all bg-muted/50 flex items-center justify-center"
         title="Upload category image"
       >
         {uploading ? (
@@ -102,35 +106,54 @@ function CategoryImageUpload({
   );
 }
 
-/** Inline time-schedule editor for a single category */
-function CategoryScheduleEditor({
+/** Format "HH:MM:SS" → "h:MM AM/PM" */
+function fmtTime(t: string | null | undefined): string {
+  if (!t) return "";
+  const [h, m] = t.split(":").map(Number);
+  const suffix = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
+}
+
+/** Schedule Dialog */
+function ScheduleDialog({
   category,
+  open,
+  onOpenChange,
   onSave,
-  onClose,
 }: {
-  category: CategoryWithSchedule;
-  onSave: (from: string | null, until: string | null) => Promise<void>;
-  onClose: () => void;
+  category: CategoryWithSchedule | null;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSave: (id: string, from: string | null, until: string | null) => Promise<void>;
 }) {
-  const [from, setFrom] = useState(category.available_from || "");
-  const [until, setUntil] = useState(category.available_until || "");
+  const [from, setFrom] = useState("");
+  const [until, setUntil] = useState("");
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
+  // Sync state when dialog opens for a category
+  const prevId = useRef<string | null>(null);
+  if (category && category.id !== prevId.current) {
+    prevId.current = category.id;
+    setFrom(category.available_from || "");
+    setUntil(category.available_until || "");
+  }
+
   const handleSave = async () => {
-    if (from && !until) {
-      toast({ title: "Set an end time too", variant: "destructive" });
-      return;
-    }
-    if (!from && until) {
-      toast({ title: "Set a start time too", variant: "destructive" });
-      return;
-    }
+    if (!category) return;
+    if (from && !until) { toast({ title: "Please set an end time", variant: "destructive" }); return; }
+    if (!from && until) { toast({ title: "Please set a start time", variant: "destructive" }); return; }
     setSaving(true);
     try {
-      await onSave(from || null, until || null);
-      toast({ title: "Schedule saved", description: from ? `${category.name} available ${from}–${until}` : `${category.name} always available` });
-      onClose();
+      await onSave(category.id, from || null, until || null);
+      toast({
+        title: from ? "Schedule saved" : "Schedule cleared",
+        description: from
+          ? `${category.name} will be available ${fmtTime(from)} – ${fmtTime(until)}`
+          : `${category.name} is now available all day`,
+      });
+      onOpenChange(false);
     } catch (err: any) {
       toast({ title: "Save failed", description: err.message, variant: "destructive" });
     } finally {
@@ -139,11 +162,12 @@ function CategoryScheduleEditor({
   };
 
   const handleClear = async () => {
+    if (!category) return;
     setSaving(true);
     try {
-      await onSave(null, null);
-      toast({ title: "Schedule cleared", description: `${category.name} is now always available` });
-      onClose();
+      await onSave(category.id, null, null);
+      toast({ title: "Schedule cleared", description: `${category.name} is now available all day` });
+      onOpenChange(false);
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
@@ -152,80 +176,72 @@ function CategoryScheduleEditor({
   };
 
   return (
-    <div className="mt-1 mb-2 rounded-xl border border-primary/20 bg-primary/5 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-primary/10 bg-primary/5">
-        <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-primary" />
-          <span className="text-xs font-bold text-primary">Availability window — {category.name}</span>
-        </div>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-0.5 rounded">
-          <X className="w-3.5 h-3.5" />
-        </button>
-      </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-primary" />
+            Availability Hours
+          </DialogTitle>
+          <DialogDescription>
+            Set the hours when <strong>{category?.name}</strong> items appear to customers.
+            Leave both empty for all-day availability.
+          </DialogDescription>
+        </DialogHeader>
 
-      <div className="px-4 py-3 space-y-3">
-        {/* Time row */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-[11px] font-semibold text-muted-foreground block mb-1.5">
-              Start time
-            </label>
-            <Input
-              type="time"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              className="h-9 text-sm font-mono"
-            />
+        <div className="space-y-5 pt-2">
+          {/* Time pickers */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold">Start time</label>
+              <Input
+                type="time"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                className="font-mono"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold">End time</label>
+              <Input
+                type="time"
+                value={until}
+                onChange={(e) => setUntil(e.target.value)}
+                className="font-mono"
+              />
+            </div>
           </div>
-          <div>
-            <label className="text-[11px] font-semibold text-muted-foreground block mb-1.5">
-              End time
-            </label>
-            <Input
-              type="time"
-              value={until}
-              onChange={(e) => setUntil(e.target.value)}
-              className="h-9 text-sm font-mono"
-            />
-          </div>
-        </div>
 
-        <p className="text-[11px] text-muted-foreground leading-relaxed">
-          Items in this category will only appear to customers during these hours.
-          Leave both empty for all-day availability. Overnight ranges work too (e.g. 22:00 → 02:00).
-        </p>
-
-        {/* Actions */}
-        <div className="flex items-center gap-2 pt-0.5">
-          <Button size="sm" onClick={handleSave} disabled={saving} className="h-8 text-xs px-4">
-            {saving ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : null}
-            Save
-          </Button>
-          {(category.available_from || category.available_until) && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleClear}
-              disabled={saving}
-              className="h-8 text-xs text-destructive hover:text-destructive border-destructive/30"
-            >
-              Remove schedule
-            </Button>
+          {/* Preview */}
+          {from && until && (
+            <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2.5">
+              <Clock className="w-4 h-4 text-primary shrink-0" />
+              <p className="text-sm font-semibold text-primary">
+                {category?.name} available {fmtTime(from)} – {fmtTime(until)}
+              </p>
+            </div>
           )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
-/** Format a TIME string "HH:MM:SS" → "H:MM AM/PM" */
-function fmtTime(t: string | null | undefined): string {
-  if (!t) return "";
-  const [h, m] = t.split(":").map(Number);
-  const suffix = h >= 12 ? "PM" : "AM";
-  const h12 = h % 12 || 12;
-  return `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
+          <p className="text-xs text-muted-foreground">
+            Cross-midnight ranges are supported — e.g. set 22:00 → 02:00 for a late-night menu.
+          </p>
+
+          {/* Buttons */}
+          <div className="flex items-center gap-2 pt-1">
+            <Button onClick={handleSave} disabled={saving} className="flex-1">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Save
+            </Button>
+            {(category?.available_from || category?.available_until) && (
+              <Button variant="outline" onClick={handleClear} disabled={saving} className="text-destructive hover:text-destructive border-destructive/30">
+                Remove
+              </Button>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export const CategoryManager = ({ restaurantId }: CategoryManagerProps) => {
@@ -236,30 +252,30 @@ export const CategoryManager = ({ restaurantId }: CategoryManagerProps) => {
   const { toast } = useToast();
 
   const [newCategoryName, setNewCategoryName] = useState("");
-  const [expandedSchedule, setExpandedSchedule] = useState<string | null>(null);
+  const [scheduleTarget, setScheduleTarget] = useState<CategoryWithSchedule | null>(null);
 
   const handleAddCategory = async () => {
     const name = newCategoryName.trim();
     if (!name) {
-      toast({ title: "Enter a name", description: "Category name is required.", variant: "destructive" });
+      toast({ title: "Enter a name", variant: "destructive" });
       return;
     }
     try {
       await createCategory.mutateAsync({ restaurant_id: restaurantId, name, display_order: categories.length });
       setNewCategoryName("");
-      toast({ title: "Category added", description: `"${name}" has been created.` });
+      toast({ title: "Category added" });
     } catch (error: any) {
-      toast({ title: "Error", description: error.message || "Failed to create category.", variant: "destructive" });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     }
   };
 
   const handleDelete = async (category: Category) => {
-    if (!confirm(`Are you sure you want to delete "${category.name}"? This will affect all menu items in this category.`)) return;
+    if (!confirm(`Delete "${category.name}"? This will affect all items in this category.`)) return;
     try {
       await deleteCategory.mutateAsync({ id: category.id, restaurantId });
-      toast({ title: "Category deleted", description: `"${category.name}" has been removed.` });
+      toast({ title: "Category deleted" });
     } catch (error: any) {
-      toast({ title: "Error", description: error.message || "Failed to delete category.", variant: "destructive" });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     }
   };
 
@@ -289,45 +305,49 @@ export const CategoryManager = ({ restaurantId }: CategoryManagerProps) => {
   }
 
   return (
-    <Card className="border-0 shadow-md">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2">
-          <GripVertical className="w-5 h-5" />
-          Categories ({categories.length})
-        </CardTitle>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Upload a photo per category, and optionally set a <strong>time window</strong> — items in that category will only be available during those hours.
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Add new category */}
-        <div className="flex gap-2">
-          <Input
-            placeholder="New category name..."
-            value={newCategoryName}
-            onChange={(e) => setNewCategoryName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
-          />
-          <Button onClick={handleAddCategory} disabled={createCategory.isPending} size="icon">
-            {createCategory.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-          </Button>
-        </div>
+    <>
+      <Card className="border-0 shadow-md">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2">
+            <GripVertical className="w-5 h-5" />
+            Categories ({categories.length})
+          </CardTitle>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Click <Clock className="w-3 h-3 inline mx-0.5" /> to set hours when a category is available — items auto-hide outside that window.
+          </p>
+        </CardHeader>
 
-        {/* Category list */}
-        <div className="space-y-1">
-          {categories.map((category, index) => {
-            const cat = category as CategoryWithSchedule;
-            const hasSchedule = !!(cat.available_from && cat.available_until);
-            const isOpen = expandedSchedule === cat.id;
+        <CardContent className="space-y-4">
+          {/* Add new */}
+          <div className="flex gap-2">
+            <Input
+              placeholder="New category name..."
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
+            />
+            <Button onClick={handleAddCategory} disabled={createCategory.isPending} size="icon">
+              {createCategory.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            </Button>
+          </div>
 
-            return (
-              <div key={cat.id}>
-                {/* Main row */}
-                <div className="flex items-center gap-2 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
-                  <Badge variant="outline" className="w-6 h-6 flex items-center justify-center p-0 shrink-0">
+          {/* List */}
+          <div className="space-y-2">
+            {categories.map((category, index) => {
+              const cat = category as CategoryWithSchedule;
+              const hasSchedule = !!(cat.available_from && cat.available_until);
+
+              return (
+                <div
+                  key={cat.id}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-card hover:bg-muted/40 transition-colors"
+                >
+                  {/* Index */}
+                  <span className="text-xs font-bold text-muted-foreground w-5 text-center shrink-0">
                     {index + 1}
-                  </Badge>
+                  </span>
 
+                  {/* Image */}
                   <CategoryImageUpload
                     categoryId={cat.id}
                     restaurantId={restaurantId}
@@ -335,33 +355,29 @@ export const CategoryManager = ({ restaurantId }: CategoryManagerProps) => {
                     onUploaded={(url) => handleImageUploaded(cat.id, url)}
                   />
 
-                  <span className="flex-1 font-medium">{cat.name}</span>
+                  {/* Name + schedule badge */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{cat.name}</p>
+                    {hasSchedule && (
+                      <p className="text-[11px] text-primary flex items-center gap-1 mt-0.5">
+                        <Clock className="w-3 h-3" />
+                        {fmtTime(cat.available_from)} – {fmtTime(cat.available_until)}
+                      </p>
+                    )}
+                  </div>
 
-                  {/* Schedule badge — shows time window when editor is closed */}
-                  {hasSchedule && !isOpen && (
-                    <button
-                      onClick={() => setExpandedSchedule(cat.id)}
-                      className="flex items-center gap-1 text-[11px] font-semibold text-primary bg-primary/10 border border-primary/20 rounded-full px-2 py-1 hover:bg-primary/15 transition-colors shrink-0"
-                      title="Edit schedule"
-                    >
-                      <Clock className="w-3 h-3" />
-                      {fmtTime(cat.available_from)} – {fmtTime(cat.available_until)}
-                    </button>
-                  )}
+                  {/* Clock button */}
+                  <Button
+                    size="icon"
+                    variant={hasSchedule ? "outline" : "ghost"}
+                    className={`h-8 w-8 shrink-0 ${hasSchedule ? "text-primary border-primary/30 hover:border-primary/60" : ""}`}
+                    title={hasSchedule ? "Edit schedule" : "Set availability hours"}
+                    onClick={() => setScheduleTarget(cat)}
+                  >
+                    <Clock className="w-4 h-4" />
+                  </Button>
 
-                  {/* Clock button — shown when no schedule set, or editor is open */}
-                  {(!hasSchedule || isOpen) && (
-                    <Button
-                      size="icon"
-                      variant={isOpen ? "secondary" : "ghost"}
-                      className="h-8 w-8 shrink-0"
-                      title="Set availability hours"
-                      onClick={() => setExpandedSchedule(isOpen ? null : cat.id)}
-                    >
-                      <Clock className="w-4 h-4" />
-                    </Button>
-                  )}
-
+                  {/* Delete */}
                   <Button
                     size="icon"
                     variant="ghost"
@@ -372,24 +388,23 @@ export const CategoryManager = ({ restaurantId }: CategoryManagerProps) => {
                     {deleteCategory.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                   </Button>
                 </div>
+              );
+            })}
 
-                {/* Inline schedule editor */}
-                {isOpen && (
-                  <CategoryScheduleEditor
-                    category={cat}
-                    onSave={(from, until) => handleSaveSchedule(cat.id, from, until)}
-                    onClose={() => setExpandedSchedule(null)}
-                  />
-                )}
-              </div>
-            );
-          })}
+            {categories.length === 0 && (
+              <p className="text-center py-6 text-muted-foreground text-sm">No categories yet. Add one above.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
-          {categories.length === 0 && (
-            <p className="text-center py-4 text-muted-foreground text-sm">No categories yet. Add one above.</p>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+      {/* Schedule dialog — rendered outside the card so it's never clipped */}
+      <ScheduleDialog
+        category={scheduleTarget}
+        open={!!scheduleTarget}
+        onOpenChange={(v) => { if (!v) setScheduleTarget(null); }}
+        onSave={handleSaveSchedule}
+      />
+    </>
   );
 };
