@@ -357,14 +357,14 @@ export function InventoryManager({ restaurantId }: InventoryManagerProps) {
   }, [items, wasteLogs]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Title Header */}
-      <div className="bg-card p-6 border rounded-3xl shadow-sm">
-        <h2 className="text-2xl font-bold tracking-tight">Restaurant OS Inventory Control</h2>
+      <div className="bg-card p-4 sm:p-6 border rounded-3xl shadow-sm">
+        <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Restaurant OS Inventory Control</h2>
         <p className="text-sm text-muted-foreground">Track physical stock, manage vendor purchase orders, log waste reports, and run runout forecasts.</p>
       </div>
 
-      <Tabs defaultValue="stock" className="space-y-6">
+      <Tabs defaultValue="stock" className="space-y-4 sm:space-y-6">
         <TabsList className="bg-muted/50 p-1 rounded-2xl w-fit flex flex-wrap gap-1">
           <TabsTrigger value="stock" className="rounded-xl px-4 py-2 gap-2 text-xs font-semibold">
             <Package className="w-4 h-4" /> Stock List
@@ -506,7 +506,7 @@ export function InventoryManager({ restaurantId }: InventoryManagerProps) {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {suppliers.map(sup => (
               <Card key={sup.id} className="rounded-3xl border shadow-sm overflow-hidden">
                 <CardHeader className="bg-slate-50/50 dark:bg-zinc-900/50 p-5 border-b flex flex-row items-center gap-3">

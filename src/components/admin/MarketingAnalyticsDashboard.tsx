@@ -111,7 +111,7 @@ export function MarketingAnalyticsDashboard({ restaurantId }: MarketingAnalytics
       </div>
 
       {/* Live Analytics Statistics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Card 1: Impressions */}
         <Card className="border-0 shadow-md bg-white/60 dark:bg-zinc-900/60 backdrop-blur-md relative overflow-hidden">
           <CardHeader className="pb-2">
@@ -202,7 +202,7 @@ export function MarketingAnalyticsDashboard({ restaurantId }: MarketingAnalytics
       </div>
 
       {/* Main Charts / Layout Breakdowns */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Left Grid: Ad Campaign CTR Performance Matrix */}
         <Card className="lg:col-span-2 border-0 shadow-md">
           <CardHeader>

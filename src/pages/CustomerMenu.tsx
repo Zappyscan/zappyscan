@@ -65,6 +65,7 @@ import { MenuGridSkeleton, MenuListSkeleton } from '@/components/menu/MenuSkelet
 import { notificationService, type NotificationType } from '@/services/notificationService';
 import { NotificationBar } from '@/components/menu/NotificationBar';
 import { WaiterCallFAB } from '@/components/menu/WaiterCallFAB';
+import { InstallBanner } from '@/components/pwa/InstallBanner';
 
 
 type ViewType = 'home' | 'search' | 'cart' | 'orders' | 'profile' | 'notifications';
@@ -2829,6 +2830,9 @@ const CustomerMenu = () => {
           </div>
         </div>
       )}
+
+      {/* PWA install banner */}
+      {!isGroupGuest && <InstallBanner variant="customer" />}
 
       {/* Friend mode banner — shown to guests who joined via invite */}
       {isGroupGuest && dynamicTableId && (

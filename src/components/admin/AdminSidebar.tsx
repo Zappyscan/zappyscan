@@ -32,6 +32,7 @@ import {
   UtensilsCrossed,
   QrCode,
   Eye,
+  Bike,
 } from "lucide-react";
 import {
   Sidebar,
@@ -64,6 +65,7 @@ const allNavItems: NavItem[] = [
   { title: "Menu", icon: UtensilsCrossed, value: "menu" },
   { title: "Kitchen", icon: ChefHat, value: "kitchen" },
   { title: "Billing", icon: Receipt, value: "billing" },
+  { title: "Online Orders", icon: Bike, value: "online-orders" },
   { title: "Inventory", icon: Package, value: "inventory" },
   { title: "Waiters", icon: Users, value: "waiters" },
   { title: "Staff", icon: CalendarClock, value: "staff" },

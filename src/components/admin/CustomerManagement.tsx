@@ -168,19 +168,19 @@ export function CustomerManagement({ restaurantId }: CustomerManagementProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header Summary */}
-      <div className="flex justify-between items-center bg-card p-6 border rounded-3xl shadow-sm">
+      <div className="flex flex-wrap justify-between items-center gap-3 bg-card p-4 sm:p-6 border rounded-3xl shadow-sm">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Customer CRM & Loyalty</h2>
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Customer CRM & Loyalty</h2>
           <p className="text-sm text-muted-foreground">Store customer spending habits, visit metrics, and manage points programs.</p>
         </div>
-        <Button onClick={loadInvoices} variant="outline" className="rounded-xl gap-1.5">
+        <Button onClick={loadInvoices} variant="outline" className="rounded-xl gap-1.5 shrink-0">
           <RefreshCw className="w-4 h-4" /> Refresh
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
         {/* Customer Directory List (Left 3 Columns) */}
         <Card className="lg:col-span-3 border-0 shadow-sm rounded-3xl bg-white dark:bg-zinc-950">
           <CardHeader className="pb-3 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -206,7 +206,8 @@ export function CustomerManagement({ restaurantId }: CustomerManagementProps) {
                 No customer records with phone numbers found in invoices.
               </div>
             ) : (
-              <Table>
+              <div className="overflow-x-auto">
+              <Table className="min-w-[640px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Customer</TableHead>
@@ -267,6 +268,7 @@ export function CustomerManagement({ restaurantId }: CustomerManagementProps) {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
           </CardContent>
         </Card>

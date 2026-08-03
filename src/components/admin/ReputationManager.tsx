@@ -299,7 +299,7 @@ ${JSON.stringify(recentReviews, null, 2)}`;
       )}
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Card className="bg-gradient-to-br from-primary/10 to-transparent">
           <CardContent className="p-6">
             <div className="flex items-center gap-3 mb-2">
@@ -353,7 +353,7 @@ ${JSON.stringify(recentReviews, null, 2)}`;
       </div>
 
       {/* Grid Layout: Reviews Feed (Left) & Menu Item Ratings (Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Left: Reviews Feed & Filter Tabs (2/3 width) */}
         <div className="lg:col-span-2 space-y-4">
           {/* Filter Tabs */}

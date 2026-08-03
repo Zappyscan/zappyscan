@@ -68,6 +68,8 @@ import { SalesAnalytics } from "@/components/admin/SalesAnalytics";
 import { StaffManagement } from "@/components/admin/StaffManagement";
 import { ReportsPanel } from "@/components/admin/ReportsPanel";
 import { TabErrorBoundary } from "@/components/admin/TabErrorBoundary";
+import { InstallBanner } from "@/components/pwa/InstallBanner";
+import { OnlineOrdersTab } from "@/components/admin/OnlineOrdersTab";
 
 /** Append cache-busting param to storage URLs */
 function cacheBustUrl(url: string | null | undefined): string | null {
@@ -291,6 +293,7 @@ const AdminDashboard = () => {
         <AdminSidebar activeTab={activeTab} onTabChange={handleTabChange} onboardingCompleted={(restaurant as any)?.onboarding_completed ?? true} restaurantName={(restaurant as any)?.name} restaurantLogo={cacheBustUrl((restaurant as any)?.logo_url)} subscriptionTier={restaurant?.subscription_tier} adsEnabled={restaurant?.ads_enabled} featureToggles={(restaurant as any)?.feature_toggles} />
 
         <SidebarInset className="flex-1">
+          <InstallBanner variant="admin" />
           <AdminHeader
             restaurantName={restaurantName}
             primaryColor={restaurant?.primary_color || undefined}
@@ -545,6 +548,20 @@ const AdminDashboard = () => {
                 >
                   <TabErrorBoundary tabName="Staff">
                     <StaffManagement restaurantId={restaurantId} />
+                  </TabErrorBoundary>
+                </motion.div>
+              )}
+
+              {activeTab === "online-orders" && (
+                <motion.div
+                  key="online-orders"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <TabErrorBoundary tabName="Online Orders">
+                    <OnlineOrdersTab restaurantId={restaurantId} />
                   </TabErrorBoundary>
                 </motion.div>
               )}
