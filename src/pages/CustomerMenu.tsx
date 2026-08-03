@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { isAvailableNow, formatTime } from '@/utils/menuSchedule';
 
 /** Append cache-busting param to storage URLs */
 function cacheBustUrl(url: string | null | undefined): string | undefined {
@@ -14,7 +15,7 @@ function cacheBustUrl(url: string | null | undefined): string | undefined {
 import { useQueryClient, useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, ClipboardList, Loader2, AlertCircle, Plus, Minus, Trash2, Search, Menu, HandHelping, LayoutGrid, List, MessageSquare, Bell, CheckCircle2, ChefHat, BellRing, Utensils, Receipt, XCircle, Share2, Users, Copy, UserPlus } from 'lucide-react';
+import { ShoppingCart, ClipboardList, Loader2, AlertCircle, Plus, Minus, Trash2, Search, Menu, HandHelping, LayoutGrid, List, MessageSquare, Bell, CheckCircle2, ChefHat, BellRing, Utensils, Receipt, XCircle, Share2, Users, Copy, UserPlus, Clock } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCartStore } from '@/stores/cartStore';
 import { Button } from '@/components/ui/button';
@@ -1196,17 +1197,52 @@ const CustomerMenu = () => {
     [menuItems]
   );
 
-  // Build category list with "All" option
+  // Live clock — refreshes every minute so schedule banners flip automatically
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Set of category IDs that are currently OUTSIDE their availability window
+  const unavailableCategoryIds = useMemo(() => {
+    const ids = new Set<string>();
+    categories.forEach(c => {
+      const cat = c as any;
+      if (cat.available_from && cat.available_until) {
+        if (!isAvailableNow(cat.available_from, cat.available_until, now)) {
+          ids.add(c.id);
+        }
+      }
+    });
+    return ids;
+  }, [categories, now]);
+
+  // Build category list with "All" option (include schedule fields)
   const categoryObjects = useMemo(() => {
     return [
-      { id: 'all', name: 'All', image_url: null },
-      ...categories.map(c => ({ id: c.id, name: c.name, image_url: c.image_url }))
+      { id: 'all', name: 'All', image_url: null, available_from: null as string | null, available_until: null as string | null },
+      ...categories.map(c => ({
+        id: c.id,
+        name: c.name,
+        image_url: c.image_url,
+        available_from: (c as any).available_from ?? null,
+        available_until: (c as any).available_until ?? null,
+      }))
     ];
   }, [categories]);
 
   // Filter items
   const filteredItems = useMemo(() => {
     return availableMenuItems.filter((item) => {
+      // Hide items from time-gated categories in All/discovery views
+      const itemCategoryId = (item as any).category?.id;
+      if (itemCategoryId && unavailableCategoryIds.has(itemCategoryId)) {
+        // Only hide in non-specific views (not when the user deliberately clicked the category)
+        const specificUnavailable = categories.find(c => c.id === itemCategoryId)?.name === selectedCategory;
+        if (!specificUnavailable) return false;
+      }
+
       const matchesCategory = (() => {
         if (selectedCategory === 'All') return true;
         if (selectedCategory === 'Trending') return item.is_popular === true;
@@ -1228,7 +1264,7 @@ const CustomerMenu = () => {
       const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     });
-  }, [availableMenuItems, selectedCategory, searchQuery]);
+  }, [availableMenuItems, selectedCategory, searchQuery, unavailableCategoryIds, categories]);
 
   const recommendedItems = useMemo(() => {
     // Return items that have is_popular === true, or fall back to the first 6 items in menuItems
@@ -1839,8 +1875,30 @@ const CustomerMenu = () => {
           categories={categoryObjects}
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
+          unavailableCategoryIds={unavailableCategoryIds}
         />
       </div>
+
+      {/* ── TIME-SCHEDULE BANNER ─────────────────────────────────────────── */}
+      {(() => {
+        // Show banner when user has selected a category that's currently off-schedule
+        const selectedCat = categoryObjects.find(c => c.name === selectedCategory);
+        if (!selectedCat || !selectedCat.available_from || !selectedCat.available_until) return null;
+        if (!unavailableCategoryIds.has(selectedCat.id)) return null;
+        return (
+          <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl px-4 py-3.5 mb-2">
+            <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-black text-amber-800 dark:text-amber-200">
+                {selectedCategory} is not available right now
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                Available {formatTime(selectedCat.available_from)} – {formatTime(selectedCat.available_until)}
+              </p>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Dynamic Advertisement Banners */}
       {promotions && promotions.length > 0 && (
