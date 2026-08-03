@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useOrderAlarm } from "@/hooks/useOrderAlarm";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   Plus, RefreshCw, Loader2, Bike, Package, CheckCircle2,
   XCircle, Clock, ChefHat, Truck, Filter, TrendingUp,
-  IndianRupee, ShoppingBag, BarChart3, LayoutGrid, List,
+  IndianRupee, ShoppingBag, BarChart3, LayoutGrid, List, BellRing, BellOff,
 } from "lucide-react";
 import { PlatformOrderCard } from "@/components/admin/PlatformOrderCard";
 import { MenuSyncPanel } from "@/components/admin/MenuSyncPanel";
@@ -109,6 +110,18 @@ export function OnlineOrdersTab({ restaurantId }: { restaurantId: string }) {
   const [filterStatus, setFilterStatus] = useState<OrderStatus | "all">("all");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
+  // Track which order IDs the staff has already opened (seen)
+  const [seenIds, setSeenIds] = useState<Record<string, true>>({});
+
+  // ── Alarm: orders that arrived and haven't been opened yet ───────────────
+  const pendingAlarmOrders = orders.filter(
+    o => o.status === "received" && (o as any).platform_accepted === null && !seenIds[o.id]
+  );
+  const { mute: muteAlarm } = useOrderAlarm(pendingAlarmOrders.length);
+
+  const markSeen = useCallback((id: string) => {
+    setSeenIds(prev => ({ ...prev, [id]: true }));
+  }, []);
 
   // ── Fetch ────────────────────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -290,6 +303,28 @@ export function OnlineOrdersTab({ restaurantId }: { restaurantId: string }) {
 
         {/* ── Orders tab ─────────────────────────────────────────────────── */}
         <TabsContent value="orders" className="space-y-4 outline-none">
+          {/* Alarm banner — visible while there are unopened new orders */}
+          {pendingAlarmOrders.length > 0 && (
+            <div className="flex items-center gap-3 bg-red-50 dark:bg-red-950/30 border border-red-300 dark:border-red-800 rounded-2xl px-4 py-3">
+              <span className="relative flex h-3 w-3 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
+              </span>
+              <BellRing className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
+              <span className="text-sm font-bold text-red-700 dark:text-red-400 flex-1">
+                {pendingAlarmOrders.length} new order{pendingAlarmOrders.length > 1 ? "s" : ""} waiting for action!
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-xl h-7 text-xs gap-1.5 border-red-300 text-red-700 hover:bg-red-100 dark:border-red-700 dark:text-red-400"
+                onClick={muteAlarm}
+              >
+                <BellOff className="w-3.5 h-3.5" /> Mute
+              </Button>
+            </div>
+          )}
+
           {/* Filters + view toggle */}
           <div className="flex flex-wrap gap-2 items-center">
             <Select value={filterPlatform} onValueChange={v => setFilterPlatform(v as any)}>
@@ -339,6 +374,7 @@ export function OnlineOrdersTab({ restaurantId }: { restaurantId: string }) {
                   key={order.id}
                   order={order as any}
                   onRefresh={load}
+                  onView={markSeen}
                 />
               ))}
             </div>

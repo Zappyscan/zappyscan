@@ -75,9 +75,11 @@ interface Props {
   order: PlatformOrder;
   restaurantName?: string;
   onRefresh: () => void;
+  /** Called when the card header is clicked — marks this order as "seen" to silence its alarm */
+  onView?: (id: string) => void;
 }
 
-export function PlatformOrderCard({ order, restaurantName, onRefresh }: Props) {
+export function PlatformOrderCard({ order, restaurantName, onRefresh, onView }: Props) {
   const { toast } = useToast();
   const ps = PLATFORM_STYLE[order.platform] || PLATFORM_STYLE.other;
 
@@ -155,11 +157,13 @@ export function PlatformOrderCard({ order, restaurantName, onRefresh }: Props) {
 
   return (
     <>
-      <div className={`rounded-2xl border ${ps.border} bg-white dark:bg-zinc-900 shadow-sm overflow-hidden transition-all`}>
+      <div className={`rounded-2xl border bg-white dark:bg-zinc-900 shadow-sm overflow-hidden transition-all ${
+        isPending ? `${ps.border} ring-2 ring-red-400 ring-offset-1` : ps.border
+      }`}>
         {/* Card header */}
         <div
           className={`flex items-center gap-3 px-4 py-3 ${ps.bg} cursor-pointer`}
-          onClick={() => setExpanded(e => !e)}
+          onClick={() => { setExpanded(e => !e); onView?.(order.id); }}
         >
           {/* Platform badge */}
           <span className={`text-xs font-black px-2.5 py-1 rounded-full bg-white/80 ${ps.color} border ${ps.border} shrink-0`}>
