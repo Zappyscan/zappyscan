@@ -144,13 +144,59 @@ const WaiterDashboard = () => {
     }
     setPlacingOrder(true);
     try {
+      const now = new Date().toISOString();
+
+      // 1. Get or create an active table_session for this table
+      const { data: existingSession } = await supabase
+        .from('table_sessions')
+        .select('id')
+        .eq('restaurant_id', restaurantId)
+        .eq('table_id', orderTableId)
+        .neq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let sessionId = existingSession?.id;
+
+      if (!sessionId) {
+        // Create a new table session
+        const { data: newSession } = await supabase
+          .from('table_sessions')
+          .insert({
+            restaurant_id: restaurantId,
+            table_id: orderTableId,
+            status: 'occupied',
+            seated_at: now,
+            order_placed_at: now,
+          })
+          .select('id')
+          .maybeSingle();
+        sessionId = newSession?.id;
+      } else {
+        // Stamp order_placed_at if not already set
+        await supabase
+          .from('table_sessions')
+          .update({ order_placed_at: now, status: 'occupied' })
+          .eq('id', sessionId)
+          .is('order_placed_at', null);
+      }
+
+      // 2. Mark table as occupied
+      await supabase
+        .from('tables')
+        .update({ status: 'occupied' })
+        .eq('id', orderTableId);
+
+      // 3. Place the order linked to the session
       await createOrderMutation.mutateAsync({
         order: {
           restaurant_id: restaurantId,
           table_id: orderTableId,
+          table_session_id: sessionId ?? undefined,
           seat_number: orderSeatNumbers[0] ?? undefined,
           special_instructions: orderSeatNumbers.length > 1 ? `Seats: ${orderSeatNumbers.join(', ')}` : undefined,
-          status: 'confirmed' as any,  // waiter places → skip pending, go straight to kitchen
+          status: 'confirmed' as any,
           total_amount: cartTotal,
           customer_name: orderCustomerName || 'Walk-in',
           payment_status: 'pending',
@@ -163,12 +209,12 @@ const WaiterDashboard = () => {
           restaurant_id: restaurantId,
         })),
       });
+
       toast({ title: '✅ Order sent to kitchen!', description: orderSeatNumbers.length ? `Seats ${orderSeatNumbers.join(', ')}` : undefined });
-      // Stay on Take Order tab so waiter can place next order for another seat at same table
+      // Stay on Take Order tab — waiter may need to order for another seat at same table
       setOrderCart([]);
       setOrderCustomerName('');
       setOrderSeatNumbers([]);
-      // orderTableId stays — waiter likely needs to order for another seat at same table
     } catch (e: any) {
       toast({ title: 'Failed to place order', description: e.message, variant: 'destructive' });
     }
