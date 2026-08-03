@@ -636,16 +636,54 @@ const WaiterDashboard = () => {
                     <div className="space-y-2">
                       <p className="text-xs font-black text-muted-foreground uppercase tracking-wide">👨‍🍳 In Kitchen</p>
                       {inProg.map(o => (
-                        <div key={o.id} className="flex items-center justify-between bg-muted/40 border rounded-xl px-3 py-2.5">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-[10px]">Table {(o.table as any)?.table_number || '?'}</Badge>
-                            <span className="text-xs text-muted-foreground">{o.customer_name || 'Guest'}</span>
-                          </div>
-                          <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full',
-                            o.status === 'preparing' ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700')}>
-                            {o.status === 'preparing' ? '🍳 Cooking' : '📋 Confirmed'}
-                          </span>
-                        </div>
+                        <Card key={o.id} className="border bg-muted/20">
+                          <CardContent className="p-3 space-y-2">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <Badge variant="outline" className="text-[10px] font-bold">
+                                    Table {(o.table as any)?.table_number || '?'}
+                                  </Badge>
+                                  {o.seat_number && (
+                                    <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded">
+                                      Seat {o.seat_number}
+                                    </span>
+                                  )}
+                                  {o.special_instructions?.startsWith('Seats:') && (
+                                    <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded">
+                                      {o.special_instructions}
+                                    </span>
+                                  )}
+                                  <span className="text-[10px] text-muted-foreground">{fmt(o.created_at)}</span>
+                                </div>
+                                <p className="text-sm font-semibold">{o.customer_name || 'Guest'}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {o.order_items?.length || 0} item{(o.order_items?.length || 0) !== 1 ? 's' : ''} · {fmtMoney(Number(o.total_amount || 0))}
+                                </p>
+                              </div>
+                              <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0',
+                                o.status === 'preparing' ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700')}>
+                                {o.status === 'preparing' ? '🍳 Cooking' : '📋 Confirmed'}
+                              </span>
+                            </div>
+                            {/* Item list preview */}
+                            {(o.order_items || []).length > 0 && (
+                              <div className="space-y-0.5 border-t pt-1.5">
+                                {(o.order_items || []).map((item: any, i: number) => (
+                                  <div key={i} className="flex justify-between text-xs text-muted-foreground">
+                                    <span className="truncate">{item.name} ×{item.quantity}</span>
+                                    <span className="font-semibold shrink-0 ml-2">{fmtMoney(item.price * item.quantity)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {o.special_instructions && !o.special_instructions.startsWith('Seats:') && (
+                              <div className="text-[11px] bg-orange-50 border border-orange-200 rounded-lg px-2.5 py-1 text-orange-700">
+                                ⚠️ {o.special_instructions}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
                       ))}
                     </div>
                   );
