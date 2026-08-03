@@ -26,6 +26,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useMenuItems, useCategories, type MenuItem } from '@/hooks/useMenuItems';
 import { useRestaurantDetails } from '@/hooks/useRestaurant';
 import { useCreateOrder } from '@/hooks/useOrders';
+import { useAddonGroups } from '@/hooks/useAddons';
+import { AddOnSuggestSheet } from '@/components/menu/AddOnSuggestSheet';
+import type { SelectedAddon } from '@/stores/cartStore';
 import { useCustomerOrders } from '@/hooks/useCustomerOrders';
 import { useCreateWaiterCall } from '@/hooks/useWaiterCalls';
 import { useRecentOrders, addRecentOrderId } from '@/hooks/useRecentOrders';
@@ -260,6 +263,7 @@ const CustomerMenu = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddedToast, setShowAddedToast] = useState(false);
   const [lastAddedItem, setLastAddedItem] = useState('');
+  const [addonSheetItem, setAddonSheetItem] = useState<MenuItem | null>(null);
   const [menuViewMode, setMenuViewMode] = useState<'list' | 'grid'>('grid');
   const [reviewOrderId, setReviewOrderId] = useState<string | null>(null);
   const [reviewImmediate, setReviewImmediate] = useState(false);
@@ -555,6 +559,7 @@ const CustomerMenu = () => {
 
   // Fetch menu items
   const { data: menuItems = [], isLoading: menuLoading } = useMenuItems(restaurantId);
+  const { data: addonGroups = [] } = useAddonGroups(restaurantId);
 
   // Fetch categories
   const { data: categories = [] } = useCategories(restaurantId);
@@ -1339,18 +1344,29 @@ const CustomerMenu = () => {
     return cartItem?.cartKey || `${itemId}____`;
   }, [cartItems]);
 
-  const handleAddToCart = useCallback((item: MenuItem & { category?: { name: string } | null }) => {
+  const addItemToCart = useCallback((item: MenuItem & { category?: { name: string } | null }, addons: SelectedAddon[] = []) => {
     addItem({
       id: item.id,
       name: item.name,
       price: Number(item.price),
       category: item.category?.name || 'Uncategorized',
       image_url: item.image_url || undefined,
+      selectedAddons: addons.length > 0 ? addons : undefined,
     });
     setLastAddedItem(item.name);
     setShowAddedToast(true);
     setTimeout(() => setShowAddedToast(false), 2000);
   }, [addItem]);
+
+  const handleAddToCart = useCallback((item: MenuItem & { category?: { name: string } | null }) => {
+    const activeGroups = addonGroups.filter(g => (g.options || []).some(o => o.is_available !== false));
+    if (activeGroups.length > 0) {
+      // Show add-on suggest sheet before adding to cart
+      setAddonSheetItem(item);
+    } else {
+      addItemToCart(item);
+    }
+  }, [addonGroups, addItemToCart]);
 
   const cartPricing = useMemo(() => {
     return evaluateCartDiscounts(
@@ -1444,6 +1460,9 @@ const CustomerMenu = () => {
           quantity: item.quantity,
           price: item.price,
           menu_item_id: item.id,
+          selected_addons: item.selectedAddons && item.selectedAddons.length > 0
+            ? item.selectedAddons
+            : undefined,
         })),
       });
 
@@ -1885,6 +1904,15 @@ const CustomerMenu = () => {
                     <p className="text-xs text-muted-foreground">
                       {currencySymbol}{item.price} each
                     </p>
+                    {item.selectedAddons && item.selectedAddons.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {item.selectedAddons.map(a => (
+                          <span key={a.optionId} className="text-[10px] bg-primary/10 text-primary font-semibold px-1.5 py-0.5 rounded-full">
+                            +{a.name}{a.price > 0 ? ` ₹${a.price}` : ''}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
@@ -2578,6 +2606,16 @@ const CustomerMenu = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── ADD-ON SUGGEST SHEET ─────────────────────────────────────────── */}
+      <AddOnSuggestSheet
+        item={addonSheetItem}
+        addonGroups={addonGroups}
+        currencySymbol="₹"
+        onConfirm={(item, addons) => addItemToCart(item as any, addons)}
+        onSkip={(item) => addItemToCart(item as any)}
+        onClose={() => setAddonSheetItem(null)}
+      />
     </div>
     </TenantThemeProvider>
   );
