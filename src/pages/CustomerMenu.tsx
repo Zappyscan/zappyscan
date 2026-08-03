@@ -577,7 +577,7 @@ const CustomerMenu = () => {
   const isDataLoading = restaurantLoading || menuLoading || (dynamicTableId && tableLoading);
 
   // Fetch active table session for the table
-  const { data: activeSession, refetch: refetchActiveSession } = useQuery({
+  const { data: activeSession, isLoading: isSessionLoading, refetch: refetchActiveSession } = useQuery({
     queryKey: ['active-table-session', restaurantId, resolvedTableId],
     queryFn: async () => {
       if (!restaurantId || !resolvedTableId) return null;
@@ -1085,18 +1085,21 @@ const CustomerMenu = () => {
 
   // Validate seat session against active table session in DB
   useEffect(() => {
-    if (isDataLoading) return;
+    if (isDataLoading || isSessionLoading) return;
 
-    // Only clear local seat session when we have CONFIRMED the table exists (resolvedTableId)
-    // AND the DB has no active session for it. Don't clear during page reload / network delays.
-    if (resolvedTableId && !activeSession && seatSessionData) {
+    // Only clear when:
+    // 1. We have confirmed the table (resolvedTableId is set)
+    // 2. The DB query has FINISHED (activeSession === null means "query done, nothing found")
+    //    — NOT undefined (still loading), which would falsely trigger a clear on every reload
+    // 3. We actually have a saved seat session to clear
+    if (resolvedTableId && activeSession === null && seatSessionData) {
       console.log("[QR Flow] No active table session found for confirmed table. Clearing local seat session.");
       setSeatSessionData(null);
       if (restaurantId && dynamicTableId) {
         localStorage.removeItem(`zappy_seat_session_${restaurantId}_${dynamicTableId}`);
       }
     }
-  }, [activeSession, seatSessionData, isDataLoading, restaurantId, dynamicTableId, resolvedTableId]);
+  }, [activeSession, isSessionLoading, seatSessionData, isDataLoading, restaurantId, dynamicTableId, resolvedTableId]);
 
   // Effect to force seat selection if table is defined but no seats are selected
   useEffect(() => {
