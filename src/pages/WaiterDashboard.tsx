@@ -163,11 +163,12 @@ const WaiterDashboard = () => {
           restaurant_id: restaurantId,
         })),
       });
-      toast({ title: '✅ Order sent to kitchen!' });
+      toast({ title: '✅ Order sent to kitchen!', description: orderSeatNumbers.length ? `Seats ${orderSeatNumbers.join(', ')}` : undefined });
+      // Stay on Take Order tab so waiter can place next order for another seat at same table
       setOrderCart([]);
       setOrderCustomerName('');
       setOrderSeatNumbers([]);
-      setActiveTab('orders');
+      // orderTableId stays — waiter likely needs to order for another seat at same table
     } catch (e: any) {
       toast({ title: 'Failed to place order', description: e.message, variant: 'destructive' });
     }
@@ -266,6 +267,22 @@ const WaiterDashboard = () => {
     });
     return m;
   }, [allOrders]);
+
+  // ── Seats with active orders for the currently selected order-table ─────────
+  const occupiedSeatsForOrderTable = useMemo(() => {
+    if (!orderTableId) return new Set<number>();
+    const activeStatuses = ['confirmed', 'preparing', 'ready', 'served'];
+    const tableOrders = (ordersByTable.get(orderTableId) || [])
+      .filter(o => activeStatuses.includes(o.status));
+    const seats = new Set<number>();
+    tableOrders.forEach(o => {
+      if (o.seat_number) seats.add(o.seat_number);
+      // also parse multi-seat from special_instructions e.g. "Seats: 1, 2"
+      const match = (o.special_instructions || '').match(/Seats?:\s*([\d,\s]+)/i);
+      if (match) match[1].split(',').forEach((s: string) => { const n = parseInt(s.trim()); if (n) seats.add(n); });
+    });
+    return seats;
+  }, [orderTableId, ordersByTable]);
 
   // ── Pending (needs waiter confirmation) ────────────────────────────────────
   const pendingOrders = useMemo(() =>
@@ -806,7 +823,7 @@ const WaiterDashboard = () => {
                   </div>
                 </div>
 
-                {/* Seat selector — multi-select, shown when a table is selected */}
+                {/* Seat selector — multi-select, shows occupied seats */}
                 {orderTableId && (() => {
                   const selectedTable = myTables.find(t => t.id === orderTableId);
                   const capacity = selectedTable?.capacity || 4;
@@ -818,31 +835,45 @@ const WaiterDashboard = () => {
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
                         <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wide">
-                          Seats{orderSeatNumbers.length > 0 ? ` (${orderSeatNumbers.join(', ')} selected)` : ''}
+                          Seats{orderSeatNumbers.length > 0 ? ` — ${orderSeatNumbers.join(', ')} selected` : ''}
                         </p>
                         {orderSeatNumbers.length > 0 && (
-                          <button
-                            onClick={() => setOrderSeatNumbers([])}
+                          <button onClick={() => setOrderSeatNumbers([])}
                             className="text-[10px] text-muted-foreground hover:text-destructive font-semibold">
                             Clear
                           </button>
                         )}
                       </div>
                       <div className="flex gap-1.5 flex-wrap">
-                        {Array.from({ length: capacity }, (_, i) => i + 1).map(seat => (
-                          <button
-                            key={seat}
-                            onClick={() => toggleSeat(seat)}
-                            className={cn(
-                              'w-9 h-9 rounded-xl text-sm font-black border transition-colors',
-                              orderSeatNumbers.includes(seat)
-                                ? 'bg-primary text-primary-foreground border-primary'
-                                : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-primary'
-                            )}>
-                            {seat}
-                          </button>
-                        ))}
+                        {Array.from({ length: capacity }, (_, i) => i + 1).map(seat => {
+                          const isSelected = orderSeatNumbers.includes(seat);
+                          const isOccupied = occupiedSeatsForOrderTable.has(seat);
+                          return (
+                            <button
+                              key={seat}
+                              onClick={() => toggleSeat(seat)}
+                              title={isOccupied ? `Seat ${seat} — order active` : `Seat ${seat}`}
+                              className={cn(
+                                'relative w-10 h-10 rounded-xl text-sm font-black border transition-colors',
+                                isSelected
+                                  ? 'bg-primary text-primary-foreground border-primary'
+                                  : isOccupied
+                                    ? 'bg-amber-50 text-amber-700 border-amber-300 hover:border-amber-500'
+                                    : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-primary'
+                              )}>
+                              {seat}
+                              {isOccupied && !isSelected && (
+                                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border border-white" />
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
+                      {occupiedSeatsForOrderTable.size > 0 && (
+                        <p className="text-[10px] text-amber-600 mt-1.5 font-semibold">
+                          🟡 Seats {[...occupiedSeatsForOrderTable].sort((a,b)=>a-b).join(', ')} already have orders — tap to add more
+                        </p>
+                      )}
                     </div>
                   );
                 })()}
