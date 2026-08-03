@@ -14,7 +14,7 @@ function cacheBustUrl(url: string | null | undefined): string | undefined {
 import { useQueryClient, useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, ClipboardList, Loader2, AlertCircle, Plus, Minus, Trash2, Search, Menu, HandHelping, LayoutGrid, List, MessageSquare, Bell, CheckCircle2, ChefHat, BellRing, Utensils, Receipt, XCircle } from 'lucide-react';
+import { ShoppingCart, ClipboardList, Loader2, AlertCircle, Plus, Minus, Trash2, Search, Menu, HandHelping, LayoutGrid, List, MessageSquare, Bell, CheckCircle2, ChefHat, BellRing, Utensils, Receipt, XCircle, Share2, Users, Copy, UserPlus } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCartStore } from '@/stores/cartStore';
 import { Button } from '@/components/ui/button';
@@ -76,6 +76,9 @@ const CustomerMenu = () => {
   const restaurantIdParam = searchParams.get('r') || '';
   const tableId = searchParams.get('table') || '';
   const isDemoMode = searchParams.get('demo') === 'true';
+  // Group ordering — friend joins via invite link
+  const inviteCode = searchParams.get('invite') || '';
+  const isGroupGuest = !!inviteCode; // Friend mode: skip seat selection
 
   // UUID validation to prevent database query crashes on malformed input
   const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -264,6 +267,10 @@ const CustomerMenu = () => {
   const [showAddedToast, setShowAddedToast] = useState(false);
   const [lastAddedItem, setLastAddedItem] = useState('');
   const [addonSheetItem, setAddonSheetItem] = useState<MenuItem | null>(null);
+  // Group ordering state
+  const [showGroupSheet, setShowGroupSheet] = useState(false);
+  const [friendCartNotifs, setFriendCartNotifs] = useState<Array<{ name: string; items: any[]; eventId: string }>>([]);
+  const [mergedEventIds, setMergedEventIds] = useState<Set<string>>(new Set());
   const [menuViewMode, setMenuViewMode] = useState<'list' | 'grid'>('grid');
   const [reviewOrderId, setReviewOrderId] = useState<string | null>(null);
   const [reviewImmediate, setReviewImmediate] = useState(false);
@@ -1079,19 +1086,22 @@ const CustomerMenu = () => {
   // Validate seat session against active table session in DB
   useEffect(() => {
     if (isDataLoading) return;
-    
-    // If there is no active table session in the DB, clear our local seat session
-    if (!activeSession && seatSessionData) {
-      console.log("[QR Flow] No active table session found. Clearing local seat session.");
+
+    // Only clear local seat session when we have CONFIRMED the table exists (resolvedTableId)
+    // AND the DB has no active session for it. Don't clear during page reload / network delays.
+    if (resolvedTableId && !activeSession && seatSessionData) {
+      console.log("[QR Flow] No active table session found for confirmed table. Clearing local seat session.");
       setSeatSessionData(null);
       if (restaurantId && dynamicTableId) {
         localStorage.removeItem(`zappy_seat_session_${restaurantId}_${dynamicTableId}`);
       }
     }
-  }, [activeSession, seatSessionData, isDataLoading, restaurantId, dynamicTableId]);
+  }, [activeSession, seatSessionData, isDataLoading, restaurantId, dynamicTableId, resolvedTableId]);
 
   // Effect to force seat selection if table is defined but no seats are selected
   useEffect(() => {
+    // Group guests (joined via invite link) skip seat selection entirely
+    if (isGroupGuest) return;
     if (dynamicTableId && selectedSeatNumbers.length === 0 && tableData && !pendingSeatTable) {
       console.log("[QR Flow] Table detected without seat selection. Forcing SeatPickerDialog.");
       setPendingSeatTable({
@@ -1099,7 +1109,7 @@ const CustomerMenu = () => {
         capacity: tableData.capacity || 4
       });
     }
-  }, [dynamicTableId, selectedSeatNumbers, tableData, pendingSeatTable]);
+  }, [dynamicTableId, selectedSeatNumbers, tableData, pendingSeatTable, isGroupGuest]);
 
   // Realtime subscriptions for live sync
   useEffect(() => {
@@ -1137,7 +1147,7 @@ const CustomerMenu = () => {
     return () => { supabase.removeChannel(channel); };
   }, [restaurantId, queryClient]);
 
-  // Realtime subscription for customer events (Alerts tab sync)
+  // Realtime subscription for customer events (Alerts tab sync + friend_cart events)
   useEffect(() => {
     if (!restaurantId) return;
 
@@ -1154,6 +1164,18 @@ const CustomerMenu = () => {
         (payload) => {
           console.log('[Realtime customer_events] New event detected:', payload);
           queryClient.invalidateQueries({ queryKey: ['notifications-tab-history', restaurantId, resolvedTableId] });
+
+          // Handle friend cart shares (only for host — non-guest users)
+          const ev = payload.new as any;
+          if (!isGroupGuest && ev.event_type === 'friend_cart' && ev.table_id === resolvedTableId) {
+            const data = ev.event_data as { name: string; items: any[] };
+            if (data?.items?.length > 0) {
+              setFriendCartNotifs(prev => {
+                if (prev.some(n => n.eventId === ev.id)) return prev;
+                return [...prev, { name: data.name || 'Friend', items: data.items, eventId: ev.id }];
+              });
+            }
+          }
         }
       )
       .subscribe();
@@ -1161,7 +1183,7 @@ const CustomerMenu = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [restaurantId, resolvedTableId, queryClient]);
+  }, [restaurantId, resolvedTableId, queryClient, isGroupGuest]);
 
 
 
@@ -1332,6 +1354,49 @@ const CustomerMenu = () => {
   useEffect(() => {
     setMenuViewMode(menuDisplaySettings.view_mode);
   }, [menuDisplaySettings.view_mode]);
+
+  // ── Group ordering helpers ──────────────────────────────────────────────────
+
+  /** Generate shareable invite URL for friends to join this table session */
+  const getInviteUrl = useCallback(() => {
+    const code = seatSessionId ? seatSessionId.replace(/-/g, '').slice(0, 8) : 'shared';
+    const url = new URL(window.location.href);
+    url.searchParams.set('invite', code);
+    url.searchParams.delete('v');
+    return url.toString();
+  }, [seatSessionId]);
+
+  /** Friend sends their cart items to the host via customer_events */
+  const sendCartToGroup = useCallback(async () => {
+    if (!restaurantId || !resolvedTableId || cartItems.length === 0) return;
+    const name = (customerName || 'Friend').trim();
+    await supabase.from('customer_events').insert({
+      restaurant_id: restaurantId,
+      table_id: resolvedTableId,
+      event_type: 'friend_cart',
+      event_data: {
+        name,
+        items: cartItems.map(i => ({
+          id: i.id, name: i.name, price: i.price, quantity: i.quantity,
+          category: i.category, image_url: i.image_url,
+          selectedAddons: i.selectedAddons,
+        })),
+      } as any,
+    });
+    toast({ title: `✅ ${name}'s order sent!`, description: 'The host will merge your items into the group bill.' });
+  }, [restaurantId, resolvedTableId, cartItems, customerName, toast]);
+
+  /** Host merges a friend's cart into their own */
+  const mergeFriendCart = useCallback((notif: { name: string; items: any[]; eventId: string }) => {
+    notif.items.forEach(i => addItem({
+      id: i.id, name: i.name, price: Number(i.price),
+      category: i.category || 'Uncategorized', image_url: i.image_url,
+      selectedAddons: i.selectedAddons,
+    }));
+    setMergedEventIds(prev => new Set([...prev, notif.eventId]));
+    setFriendCartNotifs(prev => prev.filter(n => n.eventId !== notif.eventId));
+    toast({ title: `✅ ${notif.name}'s items added!`, description: `${notif.items.length} item(s) merged into your cart.` });
+  }, [addItem, toast]);
 
   // Get item quantity in cart (sum across all customization variants of same item)
   const getItemQuantity = useCallback((itemId: string) => {
@@ -2469,6 +2534,18 @@ const CustomerMenu = () => {
         />
       )}
 
+      {/* Invite Friends button — host only, visible on menu view */}
+      {!isGroupGuest && seatSessionId && currentView === 'search' && (
+        <div className="fixed bottom-20 right-4 z-40">
+          <button
+            onClick={() => setShowGroupSheet(true)}
+            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black px-3 py-2 rounded-full shadow-lg transition-colors">
+            <UserPlus className="w-3.5 h-3.5" />
+            Invite
+          </button>
+        </div>
+      )}
+
 
       {/* Floating Waiter FAB */}
       {restaurantId && resolvedTableId && (
@@ -2616,6 +2693,85 @@ const CustomerMenu = () => {
         onSkip={(item) => addItemToCart(item as any)}
         onClose={() => setAddonSheetItem(null)}
       />
+
+      {/* ── GROUP ORDERING ───────────────────────────────────────────────── */}
+
+      {/* Friend cart notifications (shown to host) */}
+      {!isGroupGuest && friendCartNotifs.length > 0 && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 w-full max-w-lg z-50 px-3 space-y-2 pointer-events-none">
+          {friendCartNotifs.map(notif => (
+            <div key={notif.eventId}
+              className="pointer-events-auto flex items-center gap-3 bg-emerald-600 text-white rounded-2xl shadow-xl px-4 py-3">
+              <Users className="w-5 h-5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-black leading-tight">{notif.name} added {notif.items.length} item{notif.items.length > 1 ? 's' : ''}</p>
+                <p className="text-xs opacity-75 truncate">
+                  {notif.items.slice(0, 3).map(i => i.name).join(', ')}{notif.items.length > 3 ? ` +${notif.items.length - 3} more` : ''}
+                </p>
+              </div>
+              <button
+                onClick={() => mergeFriendCart(notif)}
+                className="shrink-0 bg-white text-emerald-700 font-black text-xs px-3 py-1.5 rounded-xl hover:bg-emerald-50">
+                Merge
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Share table sheet (for host) */}
+      {showGroupSheet && !isGroupGuest && (
+        <div className="fixed inset-0 z-50 flex items-end">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowGroupSheet(false)} />
+          <div className="relative w-full max-w-lg mx-auto bg-background rounded-t-2xl p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-black">Invite Friends to Your Table</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Share this link — friends can browse the menu and add items. You'll get one bill.</p>
+              </div>
+              <button onClick={() => setShowGroupSheet(false)} className="text-muted-foreground hover:text-foreground p-1 rounded-lg">
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="bg-muted rounded-xl px-3 py-2.5 flex items-center gap-2">
+              <p className="flex-1 text-xs font-mono truncate text-muted-foreground">{getInviteUrl()}</p>
+              <button
+                onClick={() => { navigator.clipboard.writeText(getInviteUrl()); toast({ title: '✅ Link copied!', description: 'Share it with your friends.' }); }}
+                className="shrink-0 flex items-center gap-1.5 bg-primary text-primary-foreground text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-primary/90">
+                <Copy className="w-3.5 h-3.5" /> Copy
+              </button>
+            </div>
+            {typeof navigator.share !== 'undefined' && (
+              <button
+                onClick={() => navigator.share({ title: 'Join my table on Zappy!', url: getInviteUrl() })}
+                className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl text-sm">
+                <Share2 className="w-4 h-4" /> Share via WhatsApp / Messages
+              </button>
+            )}
+            <p className="text-[11px] text-muted-foreground text-center">
+              Friends select their items and tap "Add to Group Bill" — you merge and pay together.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Friend mode banner — shown to guests who joined via invite */}
+      {isGroupGuest && dynamicTableId && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 w-full max-w-lg z-40 px-3">
+          {cartItems.length > 0 ? (
+            <button
+              onClick={sendCartToGroup}
+              className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 rounded-2xl text-sm shadow-lg">
+              <Users className="w-4 h-4" /> Add to Group Bill ({cartItems.length} item{cartItems.length > 1 ? 's' : ''})
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 bg-slate-800/90 text-white rounded-2xl px-4 py-2.5 text-xs font-semibold shadow-lg">
+              <UserPlus className="w-4 h-4 shrink-0 text-emerald-400" />
+              <span>You joined Table {dynamicTableId} — add items and tap "Add to Group Bill"</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
     </TenantThemeProvider>
   );
