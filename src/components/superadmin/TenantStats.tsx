@@ -32,9 +32,9 @@ function StatCard({ label, value, subLabel, icon: Icon, iconColor, bgColor, inde
       <Card className="border-0 shadow-md overflow-hidden">
         <CardContent className="p-4 sm:p-6">
           <div className="flex items-start justify-between gap-2">
-            <div className="space-y-1 min-w-0">
+            <div className="space-y-1 min-w-0 flex-1">
               <p className="text-xs sm:text-sm font-medium text-muted-foreground">{label}</p>
-              <p className="text-xl sm:text-2xl font-bold tracking-tight break-all leading-tight">{value}</p>
+              <p className="text-lg sm:text-2xl font-bold tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">{value}</p>
               {subLabel && (
                 <p className="text-xs text-muted-foreground">{subLabel}</p>
               )}
@@ -69,7 +69,7 @@ export function TenantStats({ restaurants, totalRevenue = 0, currencySymbol = "â
   }, [restaurants]);
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1">
       <StatCard
         label="Total Tenants"
         value={stats.total}
