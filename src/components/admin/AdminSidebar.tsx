@@ -89,6 +89,8 @@ interface AdminSidebarProps {
   subscriptionTier?: SubscriptionTier | null;
   adsEnabled?: boolean | null;
   featureToggles?: FeatureToggles | null;
+  /** Badge counts keyed by tab value — shown as red pills on nav items */
+  badges?: Record<string, number>;
 }
 
 export function AdminSidebar({
@@ -100,6 +102,7 @@ export function AdminSidebar({
   subscriptionTier,
   adsEnabled,
   featureToggles,
+  badges = {},
 }: AdminSidebarProps) {
   const navigate = useNavigate();
   const { state, toggleSidebar } = useSidebar();
@@ -246,6 +249,8 @@ export function AdminSidebar({
               const reason = isLocked(item.value as FeatureKey);
               const locked = !!reason;
 
+              const badgeCount = badges[item.value] || 0;
+
               return (
                 <SidebarMenuItem key={item.value}>
                   <SidebarMenuButton
@@ -260,9 +265,21 @@ export function AdminSidebar({
                           : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                     )}
                   >
-                    <item.icon className="w-5 h-5 shrink-0" />
+                    <div className="relative shrink-0">
+                      <item.icon className="w-5 h-5" />
+                      {badgeCount > 0 && collapsed && (
+                        <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center px-0.5 leading-none">
+                          {badgeCount > 99 ? "99+" : badgeCount}
+                        </span>
+                      )}
+                    </div>
                     {!collapsed && (
                       <span className="font-medium flex-1">{item.title}</span>
+                    )}
+                    {!collapsed && badgeCount > 0 && !locked && (
+                      <span className="min-w-[20px] h-5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1.5 shrink-0">
+                        {badgeCount > 99 ? "99+" : badgeCount}
+                      </span>
                     )}
                     {!collapsed && locked && (
                       <Lock className="w-3.5 h-3.5 shrink-0 opacity-60" />

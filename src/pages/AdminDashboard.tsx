@@ -60,7 +60,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureGate, type FeatureKey, type LockReason } from "@/hooks/useFeatureGate";
 import { FeatureLockedModal } from "@/components/admin/FeatureLockedModal";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { TableManagement } from "@/components/admin/TableManagement";
 import { WaiterManagementPanel } from "@/components/admin/WaiterManagementPanel";
 import { CustomerManagement } from "@/components/admin/CustomerManagement";
@@ -198,6 +198,44 @@ const AdminDashboard = () => {
   const { data: categories = [] } = useCategories(restaurantId);
   const { data: orders = [] } = useOrders(restaurantId);
 
+  // ── Sidebar badge counts ───────────────────────────────────────────────────
+  const pendingOrdersCount = orders.filter(o => o.status === 'pending').length;
+
+  const { data: lowStockCount = 0 } = useQuery({
+    queryKey: ["low_stock_count", restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return 0;
+      const { data } = await supabase
+        .from("inventory_items")
+        .select("id, current_stock, low_stock_threshold")
+        .eq("restaurant_id", restaurantId);
+      return (data || []).filter(i => i.current_stock <= i.low_stock_threshold).length;
+    },
+    enabled: !!restaurantId,
+    staleTime: 60 * 1000,
+  });
+
+  const { data: pendingOnlineCount = 0 } = useQuery({
+    queryKey: ["pending_online_orders_count", restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return 0;
+      const { count } = await (supabase as any)
+        .from("online_orders")
+        .select("id", { count: "exact", head: true })
+        .eq("restaurant_id", restaurantId)
+        .eq("status", "new");
+      return count || 0;
+    },
+    enabled: !!restaurantId,
+    staleTime: 30 * 1000,
+  });
+
+  const sidebarBadges: Record<string, number> = {
+    ...(pendingOrdersCount > 0   ? { orders: pendingOrdersCount }         : {}),
+    ...(pendingOnlineCount > 0   ? { "online-orders": pendingOnlineCount } : {}),
+    ...(lowStockCount > 0        ? { inventory: lowStockCount }            : {}),
+  };
+
   const currencySymbol = restaurant?.currency || "₹";
   const restaurantName = restaurant?.name || "ZAPPY";
 
@@ -219,9 +257,12 @@ const AdminDashboard = () => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${restaurantId}` },
-        () => { 
+        (payload) => {
           queryClient.invalidateQueries({ queryKey: ["orders", restaurantId] });
-          toast({ title: "New Order!", description: "A new order has been placed." });
+          // Only toast on INSERT — not on every status update
+          if ((payload as any).eventType === 'INSERT') {
+            toast({ title: "🍽️ New Order!", description: "A new order has been placed." });
+          }
         }
       )
       .on(
@@ -291,7 +332,7 @@ const AdminDashboard = () => {
     // Auto-collapse on tablet (<1024px); mobile (<768px) uses drawer regardless
     <SidebarProvider defaultOpen={typeof window !== "undefined" ? window.innerWidth >= 1024 : true}>
       <div className="flex min-h-screen w-full bg-muted/30">
-        <AdminSidebar activeTab={activeTab} onTabChange={handleTabChange} onboardingCompleted={(restaurant as any)?.onboarding_completed ?? true} restaurantName={(restaurant as any)?.name} restaurantLogo={cacheBustUrl((restaurant as any)?.logo_url)} subscriptionTier={restaurant?.subscription_tier} adsEnabled={restaurant?.ads_enabled} featureToggles={(restaurant as any)?.feature_toggles} />
+        <AdminSidebar activeTab={activeTab} onTabChange={handleTabChange} onboardingCompleted={(restaurant as any)?.onboarding_completed ?? true} restaurantName={(restaurant as any)?.name} restaurantLogo={cacheBustUrl((restaurant as any)?.logo_url)} subscriptionTier={restaurant?.subscription_tier} adsEnabled={restaurant?.ads_enabled} featureToggles={(restaurant as any)?.feature_toggles} badges={sidebarBadges} />
 
         <SidebarInset className="flex-1 min-w-0">
           <InstallBanner variant="admin" />
