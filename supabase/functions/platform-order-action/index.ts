@@ -204,7 +204,11 @@ serve(async (req) => {
 
   if (!order) return json({ error: "Order not found" }, 404);
 
-  // Load platform settings
+  // Platforms that use live API (need credentials). Local-only platforms skip the API entirely.
+  const LIVE_API_PLATFORMS = ["zomato", "swiggy", "uber_eats"];
+  const needsLiveApi = LIVE_API_PLATFORMS.includes(order.platform);
+
+  // Load platform settings (only required for live-API platforms)
   const { data: settings } = await supabase
     .from("platform_api_settings")
     .select("*")
@@ -212,9 +216,14 @@ serve(async (req) => {
     .eq("platform", order.platform)
     .maybeSingle();
 
-  if (!settings?.is_active) {
+  if (needsLiveApi && !settings?.is_active) {
     return json({ error: `${order.platform} integration not active` }, 403);
   }
+
+  // Guard: live platforms need a platform_order_id to call the API.
+  // If missing, fall back to local-only update (still useful for manually logged orders).
+  const hasPlatformOrderId = Boolean(order.platform_order_id);
+  const canCallLiveApi = needsLiveApi && hasPlatformOrderId;
 
   const actionPayload: ActionPayload = {
     action,
@@ -231,20 +240,25 @@ serve(async (req) => {
   let responseBody: any = null;
 
   try {
-    switch (order.platform) {
-      case "zomato":    platformResponse = await callZomato(settings, actionPayload);    break;
-      case "swiggy":    platformResponse = await callSwiggy(settings, actionPayload);    break;
-      case "uber_eats": platformResponse = await callUberEats(settings, actionPayload);  break;
-      default:
-        // For platforms without live API (dunzo, direct, other) — just update local status
-        success = true;
-        break;
-    }
+    if (!canCallLiveApi) {
+      // dunzo, direct, other — or live platform without a platform_order_id (manually logged order)
+      // Update local DB only; no external API call needed.
+      success = true;
+      if (needsLiveApi && !hasPlatformOrderId) {
+        errorMessage = "No platform order ID — status updated locally only (manual order).";
+      }
+    } else {
+      switch (order.platform) {
+        case "zomato":    platformResponse = await callZomato(settings, actionPayload);    break;
+        case "swiggy":    platformResponse = await callSwiggy(settings, actionPayload);    break;
+        case "uber_eats": platformResponse = await callUberEats(settings, actionPayload);  break;
+      }
 
-    if (platformResponse) {
-      responseBody = await platformResponse.json().catch(() => ({}));
-      success = platformResponse.ok;
-      if (!success) errorMessage = responseBody?.message || responseBody?.error || `HTTP ${platformResponse.status}`;
+      if (platformResponse) {
+        responseBody = await platformResponse.json().catch(() => ({}));
+        success = platformResponse.ok;
+        if (!success) errorMessage = responseBody?.message || responseBody?.error || `HTTP ${platformResponse.status}`;
+      }
     }
   } catch (err: any) {
     errorMessage = err.message;

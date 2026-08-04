@@ -591,6 +591,7 @@ const KitchenDashboard = ({ embedded = false, restaurantId: propRestaurantId }: 
                             onMarkServed={handleMarkServed}
                             onCancelClick={(id, num) => setCancelOrder({ id, number: num })}
                             isTvMode={isTvMode}
+                            restaurantName={restaurant?.name}
                           />
                         ))}
                       </AnimatePresence>

@@ -259,12 +259,26 @@ export function useKitchenOrderActions(restaurantId?: string) {
   const queryClient = useQueryClient();
   const [isPending, setIsPending] = useState(false);
 
+  /** Optimistically update every "orders" list in the cache for a given orderId. */
+  const optimisticStatusUpdate = useCallback(
+    (orderId: string, patch: Partial<OrderWithItems>) => {
+      queryClient.setQueriesData<OrderWithItems[]>(
+        { queryKey: ["orders"] },
+        (old) => old?.map((o) => (o.id === orderId ? { ...o, ...patch } : o))
+      );
+    },
+    [queryClient]
+  );
+
   const startPreparing = useCallback(
     async (orderId: string) => {
       setIsPending(true);
-      try {
-        const now = new Date().toISOString();
+      const now = new Date().toISOString();
 
+      // Optimistic update — card moves to "Preparing" column immediately
+      optimisticStatusUpdate(orderId, { status: "preparing" as const, started_preparing_at: now });
+
+      try {
         const { data: order } = await supabase
           .from("orders")
           .select("table_session_id")
@@ -288,19 +302,26 @@ export function useKitchenOrderActions(restaurantId?: string) {
 
         queryClient.invalidateQueries({ queryKey: ["orders"] });
         queryClient.invalidateQueries({ queryKey: ["table_sessions"] });
+      } catch (err) {
+        // Rollback optimistic update
+        queryClient.invalidateQueries({ queryKey: ["orders"] });
+        throw err;
       } finally {
         setIsPending(false);
       }
     },
-    [queryClient]
+    [queryClient, optimisticStatusUpdate]
   );
 
   const markReady = useCallback(
     async (orderId: string) => {
       setIsPending(true);
-      try {
-        const now = new Date().toISOString();
+      const now = new Date().toISOString();
 
+      // Optimistic update — card moves to "Ready" column immediately
+      optimisticStatusUpdate(orderId, { status: "ready" as const, ready_at: now });
+
+      try {
         // 1. Fetch table_session_id before updating
         const { data: order } = await supabase
           .from("orders")
@@ -326,19 +347,26 @@ export function useKitchenOrderActions(restaurantId?: string) {
 
         queryClient.invalidateQueries({ queryKey: ["orders"] });
         queryClient.invalidateQueries({ queryKey: ["table_sessions"] });
+      } catch (err) {
+        // Rollback optimistic update
+        queryClient.invalidateQueries({ queryKey: ["orders"] });
+        throw err;
       } finally {
         setIsPending(false);
       }
     },
-    [queryClient]
+    [queryClient, optimisticStatusUpdate]
   );
 
   const markServed = useCallback(
     async (orderId: string) => {
       setIsPending(true);
-      try {
-        const now = new Date().toISOString();
+      const now = new Date().toISOString();
 
+      // Optimistic update — card moves to "Served" column immediately
+      optimisticStatusUpdate(orderId, { status: "served" as const });
+
+      try {
         // 1. Fetch table_session_id before updating
         const { data: order } = await supabase
           .from("orders")
@@ -364,11 +392,15 @@ export function useKitchenOrderActions(restaurantId?: string) {
 
         queryClient.invalidateQueries({ queryKey: ["orders"] });
         queryClient.invalidateQueries({ queryKey: ["table_sessions"] });
+      } catch (err) {
+        // Rollback optimistic update
+        queryClient.invalidateQueries({ queryKey: ["orders"] });
+        throw err;
       } finally {
         setIsPending(false);
       }
     },
-    [queryClient]
+    [queryClient, optimisticStatusUpdate]
   );
 
   return {

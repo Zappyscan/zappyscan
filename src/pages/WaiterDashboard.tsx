@@ -484,7 +484,7 @@ const WaiterDashboard = () => {
 
   return (
     <TenantThemeProvider primaryColor={restaurant?.primary_color} secondaryColor={restaurant?.secondary_color}>
-      <div className="min-h-screen bg-background flex flex-col max-w-lg mx-auto">
+      <div className="min-h-screen bg-background flex flex-col max-w-lg sm:max-w-2xl mx-auto">
 
         {/* ── TOP HEADER ──────────────────────────────────────────────────── */}
         <header className="sticky top-0 z-50 bg-card border-b shadow-sm">
@@ -699,7 +699,7 @@ const WaiterDashboard = () => {
                     ⚠️ No tables assigned yet — showing all. Ask manager to assign tables to you.
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {myTables.map(table => {
                     const session = sessionByTable.get(table.id);
                     const tableOrders = ordersByTable.get(table.id) || [];
@@ -1086,7 +1086,7 @@ const WaiterDashboard = () => {
         </main>
 
         {/* ── BOTTOM NAV ───────────────────────────────────────────────────── */}
-        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg bg-card/95 backdrop-blur border-t z-50">
+        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg sm:max-w-2xl bg-card/95 backdrop-blur border-t z-50">
           <div className="flex">
             {([
               { id: 'orders', icon: ClipboardList, label: 'Orders' },

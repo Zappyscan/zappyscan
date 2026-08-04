@@ -1,5 +1,6 @@
-import { forwardRef } from 'react';
-import { Clock, Play, Check, UtensilsCrossed, XCircle } from 'lucide-react';
+import { forwardRef, useState } from 'react';
+import { Clock, Play, Check, UtensilsCrossed, XCircle, Printer } from 'lucide-react';
+import { KOTPrint, type KOTData } from './KOTPrint';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +16,7 @@ interface KitchenOrderCardProps {
   onMarkServed: (id: string) => void;
   onCancelClick: (id: string, number: number) => void;
   isTvMode?: boolean;
+  restaurantName?: string;
 }
 
 export const KitchenOrderCard = forwardRef<HTMLDivElement, KitchenOrderCardProps>(({
@@ -26,7 +28,24 @@ export const KitchenOrderCard = forwardRef<HTMLDivElement, KitchenOrderCardProps
   onMarkServed,
   onCancelClick,
   isTvMode = false,
+  restaurantName,
 }, ref) => {
+  const [kotData, setKotData] = useState<KOTData | null>(null);
+
+  const handlePrintKOT = () => {
+    setKotData({
+      orderId: order.id,
+      platform: 'dine-in',
+      customerName: `Table ${order.table?.table_number || 'N/A'}${order.seat_number ? ` · Seat ${order.seat_number}` : ''}`,
+      items: (order.order_items || []).map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        notes: item.special_instructions || undefined,
+      })),
+      createdAt: order.created_at || new Date().toISOString(),
+      restaurantName,
+    });
+  };
   const getPrepTimer = (order: OrderWithItems) => {
     if (order.status !== 'preparing' || !order.started_preparing_at) return null;
     const diff = Date.now() - new Date(order.started_preparing_at).getTime();
@@ -173,6 +192,9 @@ export const KitchenOrderCard = forwardRef<HTMLDivElement, KitchenOrderCardProps
                 <Play className="w-4 h-4 mr-2" />
                 Start Prep
               </Button>
+              <Button variant="outline" size="icon" className={`shrink-0 ${isTvMode ? 'w-12 h-12' : 'w-9 h-9'}`} onClick={handlePrintKOT} title="Print KOT">
+                <Printer className="w-4 h-4" />
+              </Button>
               <Button variant="outline" size="icon" className={`text-destructive hover:text-destructive shrink-0 ${isTvMode ? 'w-12 h-12' : 'w-9 h-9'}`} onClick={() => onCancelClick(order.id, order.order_number)}>
                 <XCircle className="w-4.5 h-4.5" />
               </Button>
@@ -185,6 +207,9 @@ export const KitchenOrderCard = forwardRef<HTMLDivElement, KitchenOrderCardProps
                 <Check className="w-4 h-4 mr-2" />
                 Mark Ready
               </Button>
+              <Button variant="outline" size="icon" className={`shrink-0 ${isTvMode ? 'w-12 h-12' : 'w-9 h-9'}`} onClick={handlePrintKOT} title="Print KOT">
+                <Printer className="w-4 h-4" />
+              </Button>
               <Button variant="outline" size="icon" className={`text-destructive hover:text-destructive shrink-0 ${isTvMode ? 'w-12 h-12' : 'w-9 h-9'}`} onClick={() => onCancelClick(order.id, order.order_number)}>
                 <XCircle className="w-4.5 h-4.5" />
               </Button>
@@ -192,13 +217,19 @@ export const KitchenOrderCard = forwardRef<HTMLDivElement, KitchenOrderCardProps
           )}
 
           {showActions === 'served' && (
-            <Button className={`w-full bg-primary hover:bg-primary/90 pt-1 ${buttonHeight}`} onClick={() => onMarkServed(order.id)} disabled={isUpdating}>
-              <UtensilsCrossed className="w-4 h-4 mr-2" />
-              Mark Served
-            </Button>
+            <div className="flex gap-2 pt-1">
+              <Button className={`flex-1 bg-primary hover:bg-primary/90 ${buttonHeight}`} onClick={() => onMarkServed(order.id)} disabled={isUpdating}>
+                <UtensilsCrossed className="w-4 h-4 mr-2" />
+                Mark Served
+              </Button>
+              <Button variant="outline" size="icon" className={`shrink-0 ${isTvMode ? 'w-12 h-12' : 'w-9 h-9'}`} onClick={handlePrintKOT} title="Print KOT">
+                <Printer className="w-4 h-4" />
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>
+      {kotData && <KOTPrint data={kotData} onClose={() => setKotData(null)} />}
     </motion.div>
   );
 });

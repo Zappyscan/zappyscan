@@ -122,20 +122,24 @@ export function TenantTable({
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="rounded-lg border overflow-hidden">
-          <Table>
+      <CardContent className="p-0 sm:p-6">
+        {/* overflow-x-auto ensures the table scrolls horizontally on tablet/mobile
+            instead of clipping. min-w forces the table to maintain readable column widths. */}
+        <div className="rounded-lg border overflow-x-auto">
+          <Table className="min-w-[720px]">
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="font-semibold">Restaurant</TableHead>
-                <TableHead className="font-semibold">Slug</TableHead>
-                <TableHead className="font-semibold">Plan</TableHead>
-                <TableHead className="font-semibold">Tables</TableHead>
-                <TableHead className="font-semibold">Orders</TableHead>
-                <TableHead className="font-semibold">Ads</TableHead>
-                <TableHead className="font-semibold">Status</TableHead>
-                <TableHead className="font-semibold">Created</TableHead>
-                <TableHead className="font-semibold text-right">Actions</TableHead>
+                <TableHead className="font-semibold min-w-[160px]">Restaurant</TableHead>
+                {/* Slug hidden on small tablets; visible from lg up */}
+                <TableHead className="font-semibold hidden lg:table-cell">Slug</TableHead>
+                <TableHead className="font-semibold min-w-[120px]">Plan</TableHead>
+                <TableHead className="font-semibold text-center w-16">Tables</TableHead>
+                <TableHead className="font-semibold text-center w-16">Orders</TableHead>
+                <TableHead className="font-semibold text-center w-16">Ads</TableHead>
+                <TableHead className="font-semibold text-center w-20">Status</TableHead>
+                {/* Created date hidden below xl */}
+                <TableHead className="font-semibold hidden xl:table-cell">Created</TableHead>
+                <TableHead className="font-semibold text-right w-12">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -143,13 +147,17 @@ export function TenantTable({
                 <TableRow key={restaurant.id} className="hover:bg-muted/50">
                   <TableCell>
                     <div>
-                      <p className="font-medium">{restaurant.name}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="font-medium leading-tight">{restaurant.name}</p>
+                      <p className="text-xs text-muted-foreground truncate max-w-[150px]">
                         {restaurant.email || "No email"}
                       </p>
+                      {/* Show slug inline on tablet when the Slug column is hidden */}
+                      <code className="text-[10px] text-muted-foreground bg-muted px-1 rounded lg:hidden">
+                        {restaurant.slug}
+                      </code>
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden lg:table-cell">
                     <code className="text-xs bg-muted px-2 py-1 rounded">
                       {restaurant.slug}
                     </code>
@@ -159,7 +167,7 @@ export function TenantTable({
                       value={restaurant.subscription_tier || "free"}
                       onValueChange={(v: SubscriptionTier) => onChangeTier(restaurant.id, v)}
                     >
-                      <SelectTrigger className="w-[110px] h-8">
+                      <SelectTrigger className="w-[105px] h-8 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -169,35 +177,39 @@ export function TenantTable({
                       </SelectContent>
                     </Select>
                   </TableCell>
-                  <TableCell className="font-semibold text-center sm:text-left">
+                  <TableCell className="font-semibold text-center">
                     {metrics?.[restaurant.id]?.tableCount ?? 0}
                   </TableCell>
-                  <TableCell className="font-semibold text-center sm:text-left">
+                  <TableCell className="font-semibold text-center">
                     {metrics?.[restaurant.id]?.orderCount ?? 0}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {onToggleAds && (
-                        <Switch
-                          checked={restaurant.ads_enabled ?? true}
-                          onCheckedChange={() => onToggleAds(restaurant.id, restaurant.ads_enabled ?? true)}
-                        />
-                      )}
+                  {/* Ads — Switch only on tablet; badge shown on hover via title */}
+                  <TableCell className="text-center">
+                    {onToggleAds ? (
+                      <Switch
+                        checked={restaurant.ads_enabled ?? true}
+                        onCheckedChange={() => onToggleAds(restaurant.id, restaurant.ads_enabled ?? true)}
+                        title={restaurant.ads_enabled !== false ? "Ads enabled" : "Ads disabled"}
+                      />
+                    ) : (
                       <Badge variant="outline" className={`text-xs ${restaurant.ads_enabled !== false ? 'border-primary/50 text-primary' : 'border-muted-foreground/30 text-muted-foreground'}`}>
-                        {restaurant.ads_enabled !== false ? 'With Ads' : 'Ad-Free'}
+                        {restaurant.ads_enabled !== false ? 'On' : 'Off'}
                       </Badge>
-                    </div>
+                    )}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
+                  {/* Status — Switch + compact badge */}
+                  <TableCell className="text-center">
+                    <div className="flex flex-col items-center gap-1">
                       <Switch
                         checked={restaurant.is_active ?? false}
                         onCheckedChange={() => onToggleActive(restaurant.id, restaurant.is_active ?? false)}
                       />
-                      {getStatusBadge(restaurant.is_active)}
+                      <span className={`text-[10px] font-medium ${restaurant.is_active ? 'text-green-600' : 'text-red-500'}`}>
+                        {restaurant.is_active ? 'Active' : 'Inactive'}
+                      </span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
+                  <TableCell className="text-sm text-muted-foreground hidden xl:table-cell whitespace-nowrap">
                     {restaurant.created_at
                       ? format(new Date(restaurant.created_at), "MMM d, yyyy")
                       : "--"}
@@ -205,7 +217,7 @@ export function TenantTable({
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                           <MoreHorizontal className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -248,9 +260,9 @@ export function TenantTable({
               ))}
               {filteredRestaurants.length === 0 && (
                 <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                      No restaurants found
-                    </TableCell>
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    No restaurants found
+                  </TableCell>
                 </TableRow>
               )}
             </TableBody>

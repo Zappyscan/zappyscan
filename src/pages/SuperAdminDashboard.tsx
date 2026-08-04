@@ -532,22 +532,24 @@ const SuperAdminDashboard = () => {
     : pageTitles[activeTab] || pageTitles.dashboard;
 
   return (
-    <SidebarProvider>
+    // Auto-collapse sidebar on tablet (<1024px) so content has full width.
+    // On mobile (<768px) the sidebar becomes a drawer regardless of this value.
+    <SidebarProvider defaultOpen={typeof window !== "undefined" ? window.innerWidth >= 1024 : true}>
       <div className="min-h-screen flex w-full bg-muted/30">
         <SuperAdminSidebar activeTab={activeTab} onTabChange={(tab) => { setActiveTab(tab); setEditingRestaurant(null); setShowCreateHotel(false); }} />
-        <SidebarInset className="flex-1">
+        <SidebarInset className="flex-1 min-w-0">
           <header className="sticky top-0 z-40 bg-card border-b">
-            <div className="flex items-center justify-between px-6 py-4">
-              <div className="flex items-center gap-3">
-                <SidebarTrigger />
-                <div>
-                  <h1 className="text-xl font-bold">{currentPage?.title}</h1>
-                  <p className="text-sm text-muted-foreground">{currentPage?.description}</p>
+            <div className="flex items-center justify-between px-3 py-3 sm:px-6 sm:py-4 gap-2">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <SidebarTrigger className="shrink-0" />
+                <div className="min-w-0">
+                  <h1 className="text-base sm:text-xl font-bold truncate">{currentPage?.title}</h1>
+                  <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">{currentPage?.description}</p>
                 </div>
               </div>
             </div>
           </header>
-          <main className="p-6">
+          <main className="p-3 sm:p-4 lg:p-6">
             {renderContent()}
           </main>
         </SidebarInset>

@@ -7,11 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
-import { 
-  Heart, Star, Gift, Phone, MapPin, Search, 
-  Loader2, RefreshCw, Cake, Ticket, Coins 
+import {
+  Heart, Star, Gift, Phone, MapPin, Search,
+  Loader2, RefreshCw, Cake, Ticket, Coins
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useCreateCoupon } from "@/hooks/useCoupons";
 
 interface CustomerManagementProps {
   restaurantId: string;
@@ -40,6 +41,7 @@ export function CustomerManagement({ restaurantId }: CustomerManagementProps) {
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerRecord | null>(null);
   const [rewardPointsCost, setRewardPointsCost] = useState("100");
   const [rewardCouponValue, setRewardCouponValue] = useState("50");
+  const createCoupon = useCreateCoupon();
 
   useEffect(() => {
     loadInvoices();
@@ -137,34 +139,61 @@ export function CustomerManagement({ restaurantId }: CustomerManagementProps) {
   };
 
   // Redeem Rewards (Points -> Coupon)
-  const handleRedeemReward = () => {
+  const handleRedeemReward = async () => {
     if (!selectedCustomer) return;
     const cost = parseInt(rewardPointsCost) || 100;
+    const couponValue = parseFloat(rewardCouponValue) || 50;
+
     if (selectedCustomer.points < cost) {
       toast({ title: "Insufficient Points", description: "Customer does not have enough points.", variant: "destructive" });
       return;
     }
 
-    const nextPoints = selectedCustomer.points - cost;
-    updatePoints(selectedCustomer.phone, nextPoints);
+    const code = `ZPY-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
-    // Create a mock coupon in database or trigger notification
-    toast({ 
-      title: "Reward Redeemed!", 
-      description: `₹${rewardCouponValue} discount coupon generated. Code: ZPY-${Math.random().toString(36).substring(3, 8).toUpperCase()}` 
-    });
-    setRewardModalOpen(false);
+    try {
+      await createCoupon.mutateAsync({
+        restaurant_id: restaurantId,
+        code,
+        discount_type: "fixed",
+        discount_value: couponValue,
+        usage_limit: 1,
+        is_active: true,
+      });
+
+      const nextPoints = selectedCustomer.points - cost;
+      updatePoints(selectedCustomer.phone, nextPoints);
+
+      toast({
+        title: "Reward Redeemed!",
+        description: `Coupon ${code} created for ₹${couponValue} off. Customer can use it at checkout.`,
+      });
+      setRewardModalOpen(false);
+    } catch (err: any) {
+      toast({ title: "Error creating coupon", description: err.message, variant: "destructive" });
+    }
   };
 
-  // Simulate Sending Birthday Offer
-  const handleSendBirthdayOffer = (customer: CustomerRecord) => {
-    toast({ 
-      title: "Birthday Offer Sent", 
-      description: `Sent birthday message with 20% discount coupon to ${customer.name} (${customer.phone}) via SMS/WhatsApp.` 
-    });
-    
-    // Add birthday points
-    updatePoints(customer.phone, customer.points + 50);
+  // Birthday Offer — create a real 20% coupon in the DB
+  const handleSendBirthdayOffer = async (customer: CustomerRecord) => {
+    const code = `BDAY-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    try {
+      await createCoupon.mutateAsync({
+        restaurant_id: restaurantId,
+        code,
+        discount_type: "percentage",
+        discount_value: 20,
+        usage_limit: 1,
+        is_active: true,
+      });
+      updatePoints(customer.phone, customer.points + 50);
+      toast({
+        title: "Birthday Offer Created!",
+        description: `20% off coupon ${code} created for ${customer.name}. Share it with them!`,
+      });
+    } catch (err: any) {
+      toast({ title: "Error creating birthday coupon", description: err.message, variant: "destructive" });
+    }
   };
 
   return (
@@ -348,8 +377,12 @@ export function CustomerManagement({ restaurantId }: CustomerManagementProps) {
               />
             </div>
 
-            <Button onClick={handleRedeemReward} className="w-full rounded-2xl h-11 font-bold mt-2">
-              Generate Reward Coupon
+            <Button onClick={handleRedeemReward} disabled={createCoupon.isPending} className="w-full rounded-2xl h-11 font-bold mt-2">
+              {createCoupon.isPending ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating Coupon...</>
+              ) : (
+                'Generate Reward Coupon'
+              )}
             </Button>
           </div>
         </DialogContent>

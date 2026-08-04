@@ -67,6 +67,7 @@ export function SubscriptionPlansManager() {
             </div>
           </div>
         )}
+        <div className="overflow-x-auto rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -101,6 +102,7 @@ export function SubscriptionPlansManager() {
             ))}
           </TableBody>
         </Table>
+        </div>
       </CardContent>
     </Card>
   );

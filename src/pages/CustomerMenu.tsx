@@ -66,6 +66,8 @@ import { notificationService, type NotificationType } from '@/services/notificat
 import { NotificationBar } from '@/components/menu/NotificationBar';
 import { WaiterCallFAB } from '@/components/menu/WaiterCallFAB';
 import { InstallBanner } from '@/components/pwa/InstallBanner';
+import { CouponInput } from '@/components/order/CouponInput';
+import { type Coupon } from '@/hooks/useCoupons';
 
 
 type ViewType = 'home' | 'search' | 'cart' | 'orders' | 'profile' | 'notifications';
@@ -251,6 +253,8 @@ const CustomerMenu = () => {
   // Cart session idempotency key and submission states to prevent double orders
   const [orderSessionId, setOrderSessionId] = useState(() => crypto.randomUUID());
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [couponDiscount, setCouponDiscount] = useState(0);
 
 
   const [activeNotification, setActiveNotification] = useState<{
@@ -1529,7 +1533,7 @@ const CustomerMenu = () => {
     const subtotal = cartPricing.subtotal;
     const taxAmount = cartPricing.tax;
     const serviceCharge = (cartPricing.subtotal - cartPricing.totalDiscount) * (serviceChargeRate / 100);
-    const total = cartPricing.finalTotal + serviceCharge;
+    const total = Math.max(0, cartPricing.finalTotal + serviceCharge - couponDiscount);
 
     if (isDemoMode) {
       toast({
@@ -1617,6 +1621,8 @@ const CustomerMenu = () => {
       // Generate a new idempotency key for the next order
       setOrderSessionId(crypto.randomUUID());
       clearCart();
+      setAppliedCoupon(null);
+      setCouponDiscount(0);
       setCurrentView('notifications');
     } catch (err: any) {
       console.error('Order placement failed:', err?.message || err);
@@ -2150,6 +2156,27 @@ const CustomerMenu = () => {
             </div>
           </div>
 
+          {/* Coupon Code */}
+          {restaurantId && (
+            <div className="bg-card p-4 border rounded-2xl space-y-2">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Coupon Code</h3>
+              <CouponInput
+                restaurantId={restaurantId}
+                orderTotal={cartPricing.finalTotal}
+                appliedCoupon={appliedCoupon}
+                appliedDiscount={couponDiscount}
+                onApply={(coupon, discount) => {
+                  setAppliedCoupon(coupon);
+                  setCouponDiscount(discount);
+                }}
+                onRemove={() => {
+                  setAppliedCoupon(null);
+                  setCouponDiscount(0);
+                }}
+              />
+            </div>
+          )}
+
           {/* Order Summary */}
           <Card className="bg-primary/5 border-primary/20">
             <CardContent className="p-4 space-y-2">
@@ -2175,10 +2202,16 @@ const CustomerMenu = () => {
                   <span>{currencySymbol}{((cartPricing.subtotal - cartPricing.totalDiscount) * serviceChargeRate / 100).toFixed(2)}</span>
                 </div>
               )}
+              {couponDiscount > 0 && appliedCoupon && (
+                <div className="flex justify-between text-sm text-success font-medium">
+                  <span>Coupon ({appliedCoupon.code})</span>
+                  <span>−{currencySymbol}{couponDiscount.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between font-bold text-lg pt-2 border-t">
                 <span>Total</span>
                 <span className="text-primary">
-                  {currencySymbol}{(cartPricing.finalTotal + (cartPricing.subtotal - cartPricing.totalDiscount) * serviceChargeRate / 100).toFixed(2)}
+                  {currencySymbol}{Math.max(0, cartPricing.finalTotal + (cartPricing.subtotal - cartPricing.totalDiscount) * serviceChargeRate / 100 - couponDiscount).toFixed(2)}
                 </span>
               </div>
             </CardContent>
@@ -2258,6 +2291,28 @@ const CustomerMenu = () => {
                   {currencySymbol}{Number(order.total_amount || 0).toFixed(2)}
                 </span>
               </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full mt-3 h-8 text-xs"
+                onClick={() => {
+                  (order.order_items || []).forEach((item) => {
+                    for (let i = 0; i < item.quantity; i++) {
+                      addItem({
+                        id: item.menu_item_id,
+                        name: item.name,
+                        price: Number(item.price),
+                        category: 'Reorder',
+                        image_url: undefined,
+                        selectedAddons: [],
+                      });
+                    }
+                  });
+                  setCurrentView('cart');
+                }}
+              >
+                🔁 Reorder
+              </Button>
             </CardContent>
           </Card>
         ))
@@ -2520,7 +2575,7 @@ const CustomerMenu = () => {
       primaryColor={splashColor}
       isLoading={!!isDataLoading}
     />
-    <div className="min-h-[100dvh] bg-background pb-[140px] w-full relative">
+    <div className="min-h-[100dvh] bg-background pb-[140px] w-full sm:max-w-2xl sm:mx-auto relative">
       {/* Table Picker Dialog */}
       <TablePickerDialog
         open={showTablePicker}

@@ -30,6 +30,8 @@ import { useCreateInvoice, useTodayInvoices, useInvoiceStats, generateInvoiceNum
 import { useTables } from '@/hooks/useTables';
 import DiscountButtons from '@/components/billing/DiscountButtons';
 import SplitPaymentPanel from '@/components/billing/SplitPaymentPanel';
+import { CouponInput } from '@/components/order/CouponInput';
+import { type Coupon } from '@/hooks/useCoupons';
 import { format } from 'date-fns';
 import { useAtomicBilling } from '@/hooks/useAtomicBilling';
 import { usePendingWaiterCalls } from '@/hooks/useWaiterCalls';
@@ -85,6 +87,8 @@ const BillingCounter = ({ embedded = false, restaurantId: propRestaurantId }: Bi
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedTableFilter, setSelectedTableFilter] = useState<string | null>(null);
   const [selectedDiscount, setSelectedDiscount] = useState(0);
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [couponDiscount, setCouponDiscount] = useState(0);
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
   const [cashReceived, setCashReceived] = useState<number>(0);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -104,6 +108,9 @@ const BillingCounter = ({ embedded = false, restaurantId: propRestaurantId }: Bi
       setCustomerName('');
       setCustomerPhone('');
     }
+    // Reset coupon when switching orders
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
   }, [selectedOrder]);
 
   const handlePhoneChange = async (phone: string) => {
@@ -160,10 +167,11 @@ const BillingCounter = ({ embedded = false, restaurantId: propRestaurantId }: Bi
   const serviceChargeRate = Number(restaurant?.service_charge_rate) || 0;
   const restaurantName = restaurant?.name || 'Restaurant';
 
-  // Compute discount
-  const discountAmount = selectedOrder
+  // Compute discount — percentage + coupon code
+  const percentDiscountAmount = selectedOrder
     ? (Number(selectedOrder.subtotal || 0) * selectedDiscount) / 100
     : 0;
+  const discountAmount = percentDiscountAmount + couponDiscount;
   const adjustedTotal = selectedOrder
     ? Math.max(0, Number(selectedOrder.total_amount || 0) - discountAmount)
     : 0;
@@ -234,6 +242,7 @@ const BillingCounter = ({ embedded = false, restaurantId: propRestaurantId }: Bi
         customerPhone: customerPhone.trim() || null,
         notes: splitNote || null,
         invoiceNumber: generateInvoiceNumber(restaurantId),
+        notes: [splitNote, appliedCoupon ? `Coupon: ${appliedCoupon.code}` : null].filter(Boolean).join(' | ') || null,
       });
       }
 
@@ -254,6 +263,8 @@ const BillingCounter = ({ embedded = false, restaurantId: propRestaurantId }: Bi
       setShowReceiptPreview(true);
       setSelectedOrder(null);
       setSelectedDiscount(0);
+      setAppliedCoupon(null);
+      setCouponDiscount(0);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
 
@@ -916,7 +927,13 @@ const BillingCounter = ({ embedded = false, restaurantId: propRestaurantId }: Bi
                         {selectedDiscount > 0 && (
                           <div className="flex justify-between text-sm text-success">
                             <span>Discount ({selectedDiscount}%)</span>
-                            <span>−{currencySymbol}{discountAmount.toFixed(2)}</span>
+                            <span>−{currencySymbol}{percentDiscountAmount.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {couponDiscount > 0 && appliedCoupon && (
+                          <div className="flex justify-between text-sm text-success">
+                            <span>Coupon ({appliedCoupon.code})</span>
+                            <span>−{currencySymbol}{couponDiscount.toFixed(2)}</span>
                           </div>
                         )}
                         <div className="flex justify-between font-bold text-lg pt-2 border-t">
@@ -959,6 +976,24 @@ const BillingCounter = ({ embedded = false, restaurantId: propRestaurantId }: Bi
                         selectedDiscount={selectedDiscount}
                         onSelectDiscount={setSelectedDiscount}
                       />
+
+                      {/* Coupon Code */}
+                      {restaurantId && (
+                        <CouponInput
+                          restaurantId={restaurantId}
+                          orderTotal={Number(selectedOrder.total_amount || 0)}
+                          appliedCoupon={appliedCoupon}
+                          appliedDiscount={couponDiscount}
+                          onApply={(coupon, discount) => {
+                            setAppliedCoupon(coupon);
+                            setCouponDiscount(discount);
+                          }}
+                          onRemove={() => {
+                            setAppliedCoupon(null);
+                            setCouponDiscount(0);
+                          }}
+                        />
+                      )}
 
                       {/* Payment Methods */}
                       <div className="pt-2">

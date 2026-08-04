@@ -49,13 +49,16 @@ ALTER TABLE public.platform_order_actions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.platform_item_overrides ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.platform_menu_sync_log ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "restaurant_staff_order_actions" ON public.platform_order_actions;
 CREATE POLICY "restaurant_staff_order_actions" ON public.platform_order_actions
   USING (restaurant_id IN (SELECT restaurant_id FROM public.user_roles WHERE user_id = auth.uid()));
 
+DROP POLICY IF EXISTS "restaurant_staff_item_overrides" ON public.platform_item_overrides;
 CREATE POLICY "restaurant_staff_item_overrides" ON public.platform_item_overrides
   USING (restaurant_id IN (SELECT restaurant_id FROM public.user_roles WHERE user_id = auth.uid()))
   WITH CHECK (restaurant_id IN (SELECT restaurant_id FROM public.user_roles WHERE user_id = auth.uid() AND role IN ('restaurant_admin','manager')));
 
+DROP POLICY IF EXISTS "restaurant_staff_sync_log" ON public.platform_menu_sync_log;
 CREATE POLICY "restaurant_staff_sync_log" ON public.platform_menu_sync_log
   USING (restaurant_id IN (SELECT restaurant_id FROM public.user_roles WHERE user_id = auth.uid()));
 

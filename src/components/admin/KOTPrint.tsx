@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { Printer, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
 interface KOTItem {
@@ -53,13 +54,21 @@ export function parseItemsSummary(summary: string): KOTItem[] {
 
 export function KOTPrint({ data, onClose }: KOTPrintProps) {
   const printRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   const handlePrint = () => {
     const printContent = printRef.current?.innerHTML;
     if (!printContent) return;
 
     const win = window.open("", "_blank", "width=400,height=600");
-    if (!win) return;
+    if (!win) {
+      toast({
+        title: "Popup blocked",
+        description: "Allow popups for this site in your browser to print KOT.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     win.document.write(`
       <!DOCTYPE html>

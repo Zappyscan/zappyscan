@@ -288,11 +288,12 @@ const AdminDashboard = () => {
 
   return (
     <TenantThemeProvider primaryColor={restaurant?.primary_color} secondaryColor={restaurant?.secondary_color}>
-    <SidebarProvider defaultOpen>
+    // Auto-collapse on tablet (<1024px); mobile (<768px) uses drawer regardless
+    <SidebarProvider defaultOpen={typeof window !== "undefined" ? window.innerWidth >= 1024 : true}>
       <div className="flex min-h-screen w-full bg-muted/30">
         <AdminSidebar activeTab={activeTab} onTabChange={handleTabChange} onboardingCompleted={(restaurant as any)?.onboarding_completed ?? true} restaurantName={(restaurant as any)?.name} restaurantLogo={cacheBustUrl((restaurant as any)?.logo_url)} subscriptionTier={restaurant?.subscription_tier} adsEnabled={restaurant?.ads_enabled} featureToggles={(restaurant as any)?.feature_toggles} />
 
-        <SidebarInset className="flex-1">
+        <SidebarInset className="flex-1 min-w-0">
           <InstallBanner variant="admin" />
           <AdminHeader
             restaurantName={restaurantName}
