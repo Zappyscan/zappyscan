@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useCreateCoupon } from "@/hooks/useCoupons";
+import { useLoyaltyPoints, useUpsertLoyaltyPoints } from "@/hooks/useLoyalty";
 
 interface CustomerManagementProps {
   restaurantId: string;
@@ -31,9 +32,6 @@ export function CustomerManagement({ restaurantId }: CustomerManagementProps) {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-
-  // Loyalty Points & Offers Storage (stored in localStorage by phone number)
-  const [loyaltyPoints, setLoyaltyPoints] = useState<Record<string, number>>({});
   const [pointsRate, setPointsRate] = useState(1); // 1 point per ₹100 spent
 
   // Dialog state
@@ -43,13 +41,12 @@ export function CustomerManagement({ restaurantId }: CustomerManagementProps) {
   const [rewardCouponValue, setRewardCouponValue] = useState("50");
   const createCoupon = useCreateCoupon();
 
+  // Loyalty points — persisted in DB (customer_loyalty_points table)
+  const { data: loyaltyPoints = {} } = useLoyaltyPoints(restaurantId);
+  const upsertPoints = useUpsertLoyaltyPoints();
+
   useEffect(() => {
     loadInvoices();
-    // Load points registry
-    const saved = localStorage.getItem(`zappy_loyalty_${restaurantId}`);
-    if (saved) {
-      setLoyaltyPoints(JSON.parse(saved));
-    }
   }, [restaurantId]);
 
   async function loadInvoices() {
@@ -131,11 +128,9 @@ export function CustomerManagement({ restaurantId }: CustomerManagementProps) {
     );
   }, [customers, searchQuery]);
 
-  // Save points helper
-  const updatePoints = (phone: string, newPoints: number) => {
-    const updated = { ...loyaltyPoints, [phone]: newPoints };
-    setLoyaltyPoints(updated);
-    localStorage.setItem(`zappy_loyalty_${restaurantId}`, JSON.stringify(updated));
+  // Save points helper — writes to DB (works across devices)
+  const updatePoints = async (phone: string, newPoints: number) => {
+    await upsertPoints.mutateAsync({ restaurantId, phone, points: newPoints });
   };
 
   // Redeem Rewards (Points -> Coupon)
@@ -162,7 +157,7 @@ export function CustomerManagement({ restaurantId }: CustomerManagementProps) {
       });
 
       const nextPoints = selectedCustomer.points - cost;
-      updatePoints(selectedCustomer.phone, nextPoints);
+      await updatePoints(selectedCustomer.phone, nextPoints);
 
       toast({
         title: "Reward Redeemed!",
@@ -186,7 +181,7 @@ export function CustomerManagement({ restaurantId }: CustomerManagementProps) {
         usage_limit: 1,
         is_active: true,
       });
-      updatePoints(customer.phone, customer.points + 50);
+      await updatePoints(customer.phone, customer.points + 50);
       toast({
         title: "Birthday Offer Created!",
         description: `20% off coupon ${code} created for ${customer.name}. Share it with them!`,
