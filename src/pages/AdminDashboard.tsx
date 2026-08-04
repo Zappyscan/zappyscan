@@ -70,6 +70,7 @@ import { ReportsPanel } from "@/components/admin/ReportsPanel";
 import { TabErrorBoundary } from "@/components/admin/TabErrorBoundary";
 import { InstallBanner } from "@/components/pwa/InstallBanner";
 import { OnlineOrdersTab } from "@/components/admin/OnlineOrdersTab";
+import { PayrollManagement } from "@/components/admin/PayrollManagement";
 
 /** Append cache-busting param to storage URLs */
 function cacheBustUrl(url: string | null | undefined): string | null {
@@ -590,6 +591,20 @@ const AdminDashboard = () => {
                 >
                   <TabErrorBoundary tabName="Staff">
                     <StaffManagement restaurantId={restaurantId} />
+                  </TabErrorBoundary>
+                </motion.div>
+              )}
+
+              {activeTab === "payroll" && (
+                <motion.div
+                  key="payroll"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <TabErrorBoundary tabName="Payroll">
+                    <PayrollManagement restaurantId={restaurantId} currencySymbol={currencySymbol} />
                   </TabErrorBoundary>
                 </motion.div>
               )}

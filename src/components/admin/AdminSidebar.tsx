@@ -33,6 +33,7 @@ import {
   QrCode,
   Eye,
   Bike,
+  Wallet,
 } from "lucide-react";
 import {
   Sidebar,
@@ -69,6 +70,7 @@ const allNavItems: NavItem[] = [
   { title: "Inventory", icon: Package, value: "inventory" },
   { title: "Waiters", icon: Users, value: "waiters" },
   { title: "Staff", icon: CalendarClock, value: "staff" },
+  { title: "Payroll", icon: Wallet, value: "payroll" },
   { title: "Analytics", icon: BarChart3, value: "analytics" },
   { title: "Reports", icon: FileSpreadsheet, value: "reports" },
   { title: "Marketing", icon: Sparkles, value: "marketing" },
