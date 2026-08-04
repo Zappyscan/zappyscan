@@ -34,7 +34,7 @@ function StatCard({ label, value, subLabel, icon: Icon, iconColor, bgColor, inde
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-1 min-w-0">
               <p className="text-xs sm:text-sm font-medium text-muted-foreground">{label}</p>
-              <p className="text-2xl sm:text-3xl font-bold tracking-tight truncate">{value}</p>
+              <p className="text-xl sm:text-2xl font-bold tracking-tight break-all leading-tight">{value}</p>
               {subLabel && (
                 <p className="text-xs text-muted-foreground">{subLabel}</p>
               )}
