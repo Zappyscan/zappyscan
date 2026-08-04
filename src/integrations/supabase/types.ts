@@ -2089,6 +2089,38 @@ export type Database = {
           },
         ]
       }
+      table_merges: {
+        Row: {
+          id: string
+          restaurant_id: string
+          table_ids: string[]
+          name: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          restaurant_id: string
+          table_ids: string[]
+          name: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          restaurant_id?: string
+          table_ids?: string[]
+          name?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_merges_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tables: {
         Row: {
           capacity: number | null
@@ -2097,7 +2129,10 @@ export type Database = {
           id: string
           is_active: boolean | null
           qr_code_url: string | null
+          reservation_name: string | null
+          reservation_time: string | null
           restaurant_id: string
+          section: string
           status: string | null
           table_number: string
           updated_at: string | null
@@ -2109,7 +2144,10 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           qr_code_url?: string | null
+          reservation_name?: string | null
+          reservation_time?: string | null
           restaurant_id: string
+          section?: string
           status?: string | null
           table_number: string
           updated_at?: string | null
@@ -2121,7 +2159,10 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           qr_code_url?: string | null
+          reservation_name?: string | null
+          reservation_time?: string | null
           restaurant_id?: string
+          section?: string
           status?: string | null
           table_number?: string
           updated_at?: string | null

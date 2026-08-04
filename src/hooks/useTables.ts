@@ -324,6 +324,80 @@ export function useAllSeatOccupancy(restaurantId?: string) {
   return query;
 }
 
+// ─── Table Merges ─────────────────────────────────────────────────────────────
+
+export interface TableMerge {
+  id: string;
+  restaurant_id: string;
+  table_ids: string[];
+  name: string;
+  created_at: string;
+}
+
+export function useTableMerges(restaurantId?: string) {
+  return useQuery({
+    queryKey: ["table_merges", restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return [] as TableMerge[];
+      const { data, error } = await supabase
+        .from("table_merges")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .order("created_at");
+      if (error) throw error;
+      return (data || []).map(row => ({
+        ...row,
+        table_ids: (row.table_ids as unknown as string[]) || [],
+      })) as TableMerge[];
+    },
+    enabled: !!restaurantId,
+  });
+}
+
+export function useCreateTableMerge() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      restaurantId,
+      tableIds,
+      name,
+    }: {
+      restaurantId: string;
+      tableIds: string[];
+      name: string;
+    }) => {
+      const { data, error } = await supabase
+        .from("table_merges")
+        .insert({ restaurant_id: restaurantId, table_ids: tableIds as any, name })
+        .select()
+        .single();
+      if (error) throw error;
+      return data as TableMerge;
+    },
+    onSuccess: (d) =>
+      qc.invalidateQueries({ queryKey: ["table_merges", d.restaurant_id] }),
+  });
+}
+
+export function useDeleteTableMerge() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      restaurantId,
+    }: {
+      id: string;
+      restaurantId: string;
+    }) => {
+      const { error } = await supabase.from("table_merges").delete().eq("id", id);
+      if (error) throw error;
+      return { restaurantId };
+    },
+    onSuccess: (d) =>
+      qc.invalidateQueries({ queryKey: ["table_merges", d.restaurantId] }),
+  });
+}
+
 export function useOccupySeats() {
   const queryClient = useQueryClient();
 

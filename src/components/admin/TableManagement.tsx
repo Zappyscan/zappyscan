@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useTables, useCreateTable, useUpdateTable, useDeleteTable, useAllSeatOccupancy } from "@/hooks/useTables";
+import {
+  useTables, useCreateTable, useUpdateTable, useDeleteTable, useAllSeatOccupancy,
+  useTableMerges, useCreateTableMerge, useDeleteTableMerge,
+} from "@/hooks/useTables";
 import { useOrders } from "@/hooks/useOrders";
 import { supabase } from "@/integrations/supabase/client";
 import { logActivity } from "@/services/auditLogger";
@@ -12,8 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { 
-  Grid3X3, Plus, Trash2, Combine, Split, UserPlus, 
+import {
+  Grid3X3, Plus, Trash2, Combine, Split, UserPlus,
   Clock, Coffee, Info, Loader2, AlertCircle, RefreshCw,
   LayoutGrid, Users, DollarSign
 } from "lucide-react";
@@ -32,14 +35,16 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
   const deleteTable = useDeleteTable();
   const { data: allSeatOccupancy = [] } = useAllSeatOccupancy(restaurantId);
 
+  // Table merges — persisted in DB
+  const { data: mergedTables = [] } = useTableMerges(restaurantId);
+  const createMerge = useCreateTableMerge();
+  const deleteMerge = useDeleteTableMerge();
+
   const [newTableNumber, setNewTableNumber] = useState("");
   const [newCapacity, setNewCapacity] = useState("4");
   const [newSection, setNewSection] = useState("Main Hall");
 
-  // Local state for layout details
-  const [sectionsMap, setSectionsMap] = useState<Record<string, string>>({}); // tableId -> Section
   const [selectedTableIds, setSelectedTableIds] = useState<string[]>([]);
-  const [mergedTables, setMergedTables] = useState<Array<{ id: string; tableIds: string[]; name: string }>>([]);
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [tableToDelete, setTableToDelete] = useState<any | null>(null);
@@ -50,7 +55,6 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
   const [selectedTableForAssign, setSelectedTableForAssign] = useState<any | null>(null);
   const [selectedWaiterForAssign, setSelectedWaiterForAssign] = useState("");
 
-  const [reservationsMap, setReservationsMap] = useState<Record<string, { time: string; name: string }>>({});
   const [reserveModalOpen, setReserveModalOpen] = useState(false);
   const [selectedTableForReserve, setSelectedTableForReserve] = useState<any | null>(null);
   const [reservationTime, setReservationTime] = useState("");
@@ -97,33 +101,6 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
     return () => { supabase.removeChannel(channel); };
   }, [restaurantId, refetchAssignments]);
 
-  useEffect(() => {
-
-    // Load sections & merges from localStorage
-    const savedSections = localStorage.getItem(`zappy_sections_${restaurantId}`);
-    if (savedSections) {
-      setSectionsMap(JSON.parse(savedSections));
-    }
-    const savedMerges = localStorage.getItem(`zappy_merges_${restaurantId}`);
-    if (savedMerges) {
-      setMergedTables(JSON.parse(savedMerges));
-    }
-    const savedReservations = localStorage.getItem(`zappy_reservations_${restaurantId}`);
-    if (savedReservations) {
-      setReservationsMap(JSON.parse(savedReservations));
-    }
-  }, [restaurantId]);
-
-  const saveSections = (newMap: Record<string, string>) => {
-    setSectionsMap(newMap);
-    localStorage.setItem(`zappy_sections_${restaurantId}`, JSON.stringify(newMap));
-  };
-
-  const saveReservations = (newMap: Record<string, { time: string; name: string }>) => {
-    setReservationsMap(newMap);
-    localStorage.setItem(`zappy_reservations_${restaurantId}`, JSON.stringify(newMap));
-  };
-
   const handleAddTable = async () => {
     if (!newTableNumber.trim()) {
       toast({ title: "Table number required", variant: "destructive" });
@@ -135,11 +112,8 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
         table_number: newTableNumber.trim(),
         capacity: parseInt(newCapacity) || 4,
         status: "available",
+        section: newSection,
       });
-
-      // Save section
-      const updatedSections = { ...sectionsMap, [table.id]: newSection };
-      saveSections(updatedSections);
 
       logActivity({
         restaurantId,
@@ -161,9 +135,8 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
     if (newStatus === "reserved") {
       const table = tables.find(t => t.id === tableId);
       setSelectedTableForReserve(table);
-      const currentRes = reservationsMap[tableId] || { time: "", name: "" };
-      setReservationTime(currentRes.time);
-      setReservationName(currentRes.name);
+      setReservationTime(table?.reservation_time || "");
+      setReservationName(table?.reservation_name || "");
       setReserveModalOpen(true);
       return;
     }
@@ -171,14 +144,9 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
     try {
       await updateTable.mutateAsync({
         id: tableId,
-        updates: { status: newStatus }
+        updates: { status: newStatus, reservation_time: null, reservation_name: null }
       });
-      if (reservationsMap[tableId]) {
-        const updated = { ...reservationsMap };
-        delete updated[tableId];
-        saveReservations(updated);
-      }
-      
+
       const table = tables.find(t => t.id === tableId);
       logActivity({
         restaurantId,
@@ -203,17 +171,12 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
     try {
       await updateTable.mutateAsync({
         id: selectedTableForReserve.id,
-        updates: { status: "reserved" }
-      });
-      
-      const updated = {
-        ...reservationsMap,
-        [selectedTableForReserve.id]: {
-          time: reservationTime.trim(),
-          name: reservationName.trim() || "Guest"
+        updates: {
+          status: "reserved",
+          reservation_time: reservationTime.trim(),
+          reservation_name: reservationName.trim() || "Guest",
         }
-      };
-      saveReservations(updated);
+      });
 
       logActivity({
         restaurantId,
@@ -222,7 +185,7 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
         recordId: selectedTableForReserve.id,
         newValues: { status: "reserved", time: reservationTime.trim(), name: reservationName.trim() }
       });
-      
+
       toast({
         title: "Table Reserved",
         description: `Table ${selectedTableForReserve.table_number} reserved at ${reservationTime} for ${reservationName || "Guest"}.`
@@ -270,20 +233,19 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
   };
 
   const handleSelectTable = (tableId: string) => {
-    setSelectedTableIds(prev => 
+    setSelectedTableIds(prev =>
       prev.includes(tableId) ? prev.filter(id => id !== tableId) : [...prev, tableId]
     );
   };
 
-  // Merge selected tables
-  const handleMergeTables = () => {
+  // Merge selected tables — persisted in DB
+  const handleMergeTables = async () => {
     if (selectedTableIds.length < 2) {
       toast({ title: "Selection Error", description: "Select at least 2 tables to merge.", variant: "destructive" });
       return;
     }
-    
-    // Check if any selected table is already part of a merge
-    const alreadyMerged = mergedTables.some(m => m.tableIds.some(id => selectedTableIds.includes(id)));
+
+    const alreadyMerged = mergedTables.some(m => m.table_ids.some(id => selectedTableIds.includes(id)));
     if (alreadyMerged) {
       toast({ title: "Merge Conflict", description: "One or more tables are already merged.", variant: "destructive" });
       return;
@@ -293,62 +255,50 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
       .map(id => tables.find(t => t.id === id)?.table_number || "")
       .filter(Boolean)
       .sort();
-    
+
     const mergeName = tableNumbers.join(" + ");
-    const newMerge = {
-      id: Math.random().toString(36).substring(7),
-      tableIds: [...selectedTableIds],
-      name: mergeName
-    };
 
-    const updatedMerges = [...mergedTables, newMerge];
-    setMergedTables(updatedMerges);
-    localStorage.setItem(`zappy_merges_${restaurantId}`, JSON.stringify(updatedMerges));
-    
-    // Set all merged tables status to Occupied/Reserved or same status
-    selectedTableIds.forEach(id => {
-      handleStatusChange(id, "occupied");
-    });
+    try {
+      await createMerge.mutateAsync({ restaurantId, tableIds: selectedTableIds, name: mergeName });
 
-    logActivity({
-      restaurantId,
-      action: `Merged tables into ${mergeName}`,
-      tableName: "tables",
-      newValues: { merged_table_numbers: tableNumbers }
-    });
+      selectedTableIds.forEach(id => handleStatusChange(id, "occupied"));
 
-    setSelectedTableIds([]);
-    toast({ title: "Tables Merged", description: `Merged into ${mergeName}` });
+      logActivity({
+        restaurantId,
+        action: `Merged tables into ${mergeName}`,
+        tableName: "tables",
+        newValues: { merged_table_numbers: tableNumbers }
+      });
+
+      setSelectedTableIds([]);
+      toast({ title: "Tables Merged", description: `Merged into ${mergeName}` });
+    } catch (e: any) {
+      toast({ title: "Merge failed", description: e.message, variant: "destructive" });
+    }
   };
 
-  // Split selected merge
-  const handleSplitTables = (mergeId: string) => {
-    const merge = mergedTables.find(m => m.id === mergeId);
-    if (!merge) return;
+  // Split merged table — delete the merge record from DB
+  const handleSplitTables = async (merge: { id: string; table_ids: string[]; name: string }) => {
+    try {
+      await deleteMerge.mutateAsync({ id: merge.id, restaurantId });
 
-    const updatedMerges = mergedTables.filter(m => m.id !== mergeId);
-    setMergedTables(updatedMerges);
-    localStorage.setItem(`zappy_merges_${restaurantId}`, JSON.stringify(updatedMerges));
+      merge.table_ids.forEach(id => handleStatusChange(id, "available"));
 
-    // Reset status back to available
-    merge.tableIds.forEach(id => {
-      handleStatusChange(id, "available");
-    });
+      logActivity({
+        restaurantId,
+        action: `Split merged table ${merge.name}`,
+        tableName: "tables",
+        oldValues: { split_tables: merge.name }
+      });
 
-    logActivity({
-      restaurantId,
-      action: `Split merged table ${merge.name}`,
-      tableName: "tables",
-      oldValues: { split_tables: merge.name }
-    });
-
-    toast({ title: "Tables Split", description: `Split merged table ${merge.name}` });
+      toast({ title: "Tables Split", description: `Split merged table ${merge.name}` });
+    } catch (e: any) {
+      toast({ title: "Split failed", description: e.message, variant: "destructive" });
+    }
   };
 
-  // Open assign waiter modal
   const openAssignWaiterModal = (table: any) => {
     setSelectedTableForAssign(table);
-    // Find if already assigned
     const currentWaiter = waiters.find(w => w.full_name === assignments[table.id]);
     setSelectedWaiterForAssign(currentWaiter?.id || "none");
     setAssignModalOpen(true);
@@ -358,8 +308,7 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
     if (!selectedTableForAssign) return;
     try {
       const tableId = selectedTableForAssign.id;
-      
-      // Unassign existing active assignments for this table
+
       await supabase
         .from("employee_assignments")
         .update({ unassigned_at: new Date().toISOString() })
@@ -369,7 +318,6 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
 
       if (selectedWaiterForAssign !== "none") {
         const waiter = waiters.find(w => w.id === selectedWaiterForAssign);
-        // Create new assignment
         const { error } = await supabase
           .from("employee_assignments")
           .insert({
@@ -393,14 +341,12 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
         toast({ title: "Waiter Assigned", description: `${waiter.full_name} assigned to Table ${selectedTableForAssign.table_number}` });
       } else {
         refetchAssignments();
-
         logActivity({
           restaurantId,
           action: `Unassigned waiter from Table ${selectedTableForAssign.table_number}`,
           tableName: "employee_assignments",
           recordId: tableId
         });
-
         toast({ title: "Waiter Unassigned" });
       }
 
@@ -410,39 +356,29 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
     }
   };
 
-  // Helper: Find active bill/total for a table from orders
   const getTableBillInfo = (tableId: string) => {
     const activeOrder = orders.find(
       (o) => o.table_id === tableId && o.status !== "completed" && o.status !== "cancelled"
     );
     if (!activeOrder) return { hasOrder: false, bill: 0, time: "", since: "" };
-    
+
     const minutes = Math.floor((Date.now() - new Date(activeOrder.created_at).getTime()) / 60000);
     const duration = minutes < 1 ? "Just seated" : `${minutes}m ago`;
     const since = new Date(activeOrder.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    return {
-      hasOrder: true,
-      bill: Number(activeOrder.total_amount || 0),
-      time: duration,
-      since: since
-    };
+    return { hasOrder: true, bill: Number(activeOrder.total_amount || 0), time: duration, since };
   };
 
-  // Group tables by section
   const sections = ["Main Hall", "VIP Lounge", "Balcony", "Garden"];
 
-  // Filter out tables that are currently merged into a visual merge card
-  const mergedIdsList = mergedTables.flatMap(m => m.tableIds);
+  // Filter out tables that are part of an active merge
+  const mergedIdsList = mergedTables.flatMap(m => m.table_ids);
   const standaloneTables = tables.filter(t => !mergedIdsList.includes(t.id));
 
-  // Summary Metrics Calculations
   const totalTablesCount = tables.length;
   const availableCount = tables.filter(t => t.status === "available" || !t.status).length;
   const occupiedCount = tables.filter(t => t.status === "occupied").length;
-  const fullCount = tables.filter(t => t.status === "full").length;
   const reservedCount = tables.filter(t => t.status === "reserved").length;
-  
   const activeGuestsCount = allSeatOccupancy.length;
   const totalCapacity = tables.reduce((sum, t) => sum + (t.capacity || 0), 0);
   const occupancyPercent = totalCapacity > 0 ? Math.round((activeGuestsCount / totalCapacity) * 100) : 0;
@@ -451,7 +387,11 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
     <div className="space-y-6">
       <div className="flex justify-end gap-2">
         {selectedTableIds.length >= 2 && (
-          <Button onClick={handleMergeTables} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl gap-1 shadow-md shadow-blue-500/20">
+          <Button
+            onClick={handleMergeTables}
+            disabled={createMerge.isPending}
+            className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl gap-1 shadow-md shadow-blue-500/20"
+          >
             <Combine className="w-4 h-4" /> Merge ({selectedTableIds.length})
           </Button>
         )}
@@ -509,13 +449,12 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
               <CardContent className="px-6 pb-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {mergedTables.map(m => {
-                    // Combine capacities & bills
-                    const childTables = m.tableIds.map(id => tables.find(t => t.id === id)).filter(Boolean);
+                    const childTables = m.table_ids.map(id => tables.find(t => t.id === id)).filter(Boolean);
                     const totalCap = childTables.reduce((sum, t) => sum + (t?.capacity || 0), 0);
-                    const bills = m.tableIds.map(id => getTableBillInfo(id));
+                    const bills = m.table_ids.map(id => getTableBillInfo(id));
                     const totalBill = bills.reduce((sum, b) => sum + b.bill, 0);
                     const hasOrder = bills.some(b => b.hasOrder);
-                    
+
                     return (
                       <Card key={m.id} className="border border-blue-200 shadow-sm relative overflow-hidden bg-white flex flex-col min-h-[160px]">
                         <CardContent className="p-4 flex flex-col justify-between flex-grow">
@@ -528,7 +467,7 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
                               <Coffee className="w-3.5 h-3.5" /> {totalCap} Seats
                             </div>
                           </div>
-                          
+
                           <div className="border-t pt-3 mt-3 space-y-1">
                             {hasOrder ? (
                               <div className="flex justify-between text-xs">
@@ -541,7 +480,12 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
                           </div>
 
                           <div className="flex items-center justify-end gap-2 mt-3 pt-2 border-t">
-                            <Button size="sm" variant="ghost" className="text-destructive h-8 px-2.5 rounded-lg text-xs" onClick={() => handleSplitTables(m.id)}>
+                            <Button
+                              size="sm" variant="ghost"
+                              className="text-destructive h-8 px-2.5 rounded-lg text-xs"
+                              disabled={deleteMerge.isPending}
+                              onClick={() => handleSplitTables(m)}
+                            >
                               <Split className="w-3.5 h-3.5 mr-1" /> Split
                             </Button>
                           </div>
@@ -556,7 +500,7 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
 
           {/* Render Standalone Tables by Section */}
           {sections.map(section => {
-            const sectionTables = standaloneTables.filter(t => (sectionsMap[t.id] || "Main Hall") === section);
+            const sectionTables = standaloneTables.filter(t => (t.section || "Main Hall") === section);
             if (sectionTables.length === 0) return null;
 
             return (
@@ -573,10 +517,8 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
                       const isSelected = selectedTableIds.includes(table.id);
                       const billInfo = getTableBillInfo(table.id);
                       const waiterName = assignments[table.id];
-                      
                       const tableSeatsOccupied = allSeatOccupancy.filter(s => s.table_id === table.id).length;
-                      
-                      // Status mapping colors
+
                       let statusBg = "bg-green-500/10 border-green-500/20 text-green-700 dark:text-green-400";
                       let indicatorColor = "bg-green-500";
                       if (table.status === "occupied") {
@@ -594,15 +536,14 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
                       }
 
                       return (
-                        <Card 
-                          key={table.id} 
+                        <Card
+                          key={table.id}
                           onClick={() => handleSelectTable(table.id)}
                           className={`border cursor-pointer transition-all flex flex-col min-h-[175px] ${
                             isSelected ? "ring-2 ring-primary border-primary" : "hover:border-slate-300"
                           }`}
                         >
                           <CardContent className="p-4 flex flex-col justify-between flex-grow">
-                            {/* Card Top */}
                             <div>
                               <div className="flex justify-between items-start">
                                 <span className="font-extrabold text-lg">Table {table.table_number}</span>
@@ -612,18 +553,13 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
                                 </Badge>
                               </div>
                               <div className="text-xs font-semibold text-muted-foreground mt-2 flex items-center gap-2">
-                                <Users className="w-3.5 h-3.5" /> 
-                                {(() => {
-                                  return (
-                                    <span className={tableSeatsOccupied > 0 ? "text-slate-900 dark:text-slate-100" : ""}>
-                                      {tableSeatsOccupied}/{table.capacity}
-                                    </span>
-                                  );
-                                })()} Guests
+                                <Users className="w-3.5 h-3.5" />
+                                <span className={tableSeatsOccupied > 0 ? "text-slate-900 dark:text-slate-100" : ""}>
+                                  {tableSeatsOccupied}/{table.capacity}
+                                </span> Guests
                               </div>
                             </div>
 
-                            {/* Card Bill Info */}
                             {billInfo.hasOrder && (
                               <div className="border-t pt-3 mt-3 bg-slate-50/50 dark:bg-slate-900/50 -mx-4 px-4 pb-2">
                                 <div className="flex justify-between text-xs font-bold text-slate-800 dark:text-slate-200">
@@ -637,19 +573,18 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
                               </div>
                             )}
 
-                            {/* Card Reservation Info */}
-                            {table.status === "reserved" && reservationsMap[table.id] && (
+                            {/* Reservation badge — reads from DB via table.reservation_time */}
+                            {table.status === "reserved" && table.reservation_time && (
                               <div className="border-t pt-2 mt-2">
                                 <div className="flex justify-between text-xs font-semibold text-slate-800 dark:text-slate-200 bg-amber-50/50 dark:bg-amber-950/20 p-1.5 rounded-lg border border-amber-100 dark:border-amber-900/50">
-                                  <span>Res: {reservationsMap[table.id].time}</span>
-                                  <span className="text-muted-foreground truncate max-w-[80px]" title={reservationsMap[table.id].name}>
-                                    👤 {reservationsMap[table.id].name}
+                                  <span>Res: {table.reservation_time}</span>
+                                  <span className="text-muted-foreground truncate max-w-[80px]" title={table.reservation_name || ""}>
+                                    👤 {table.reservation_name || "Guest"}
                                   </span>
                                 </div>
                               </div>
                             )}
 
-                            {/* Card Footer Actions */}
                             <div className="flex items-center justify-between gap-1 mt-3 pt-2 border-t" onClick={e => e.stopPropagation()}>
                               <span className="text-[10px] font-medium text-muted-foreground truncate max-w-[100px]" title={waiterName}>
                                 {waiterName ? `Waiter: ${waiterName.split(' ')[0]}` : "No Waiter"}
@@ -658,7 +593,7 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
                                 <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-slate-500" onClick={() => openAssignWaiterModal(table)} title="Assign Waiter">
                                   <UserPlus className="w-3.5 h-3.5" />
                                 </Button>
-                                <Select value={table.status} onValueChange={(val) => handleStatusChange(table.id, val)}>
+                                <Select value={table.status || "available"} onValueChange={(val) => handleStatusChange(table.id, val)}>
                                   <SelectTrigger className="w-[100px] h-7 text-[10px] rounded-lg">
                                     <SelectValue placeholder="Status" />
                                   </SelectTrigger>
@@ -685,7 +620,7 @@ export function TableManagement({ restaurantId }: TableManagementProps) {
           })}
         </div>
 
-        {/* Create Table Side Panel (Right 1 column) */}
+        {/* Create Table Side Panel */}
         <div className="space-y-6">
           <Card className="border-0 shadow-sm rounded-3xl bg-white dark:bg-zinc-950">
             <CardHeader>
