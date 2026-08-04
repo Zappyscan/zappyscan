@@ -107,13 +107,19 @@ export function SuperAdminSidebar({ activeTab, onTabChange }: SuperAdminSidebarP
                   onClick={() => onTabChange(item.value)}
                   tooltip={item.title}
                   className={cn(
-                    "w-full justify-start gap-3 rounded-xl transition-all duration-200",
+                    "w-full rounded-xl transition-all duration-200",
+                    collapsed ? "flex-col justify-center gap-0.5 h-auto py-2 px-1" : "justify-start gap-3",
                     isActive
                       ? "bg-primary text-primary-foreground hover:bg-primary/90"
                       : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                   )}
                 >
                   <item.icon className="w-5 h-5 shrink-0" />
+                  {collapsed && (
+                    <span className="text-[9px] font-medium leading-tight text-center w-full truncate opacity-80">
+                      {item.title}
+                    </span>
+                  )}
                   {!collapsed && <span className="font-medium">{item.title}</span>}
                 </SidebarMenuButton>
               </SidebarMenuItem>
