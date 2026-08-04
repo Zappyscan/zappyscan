@@ -6,7 +6,7 @@ export type FeatureKey =
   // ── Starter (free) ────────────────────────────────────────────────────────
   | "dashboard" | "menu" | "orders" | "kitchen" | "billing" | "settings" | "reviews"
   // ── Professional (pro) ────────────────────────────────────────────────────
-  | "tables" | "qr-manager" | "waiters" | "staff" | "payroll" | "invoice" | "inventory" | "reports"
+  | "tables" | "qr-manager" | "waiters" | "staff" | "payroll" | "invoice" | "tasks" | "inventory" | "reports"
   | "users" | "preview" | "coupons" | "ads" | "offers" | "exports" | "research" | "promotions"
   // ── Growth / Enterprise ───────────────────────────────────────────────────
   | "online-orders" | "analytics" | "marketing" | "branding" | "multi-outlet";
@@ -28,6 +28,7 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   staff: "Staff",
   payroll: "Payroll",
   invoice: "Invoice",
+  tasks: "Tasks",
   inventory: "Inventory",
   reports: "Reports",
   users: "Users",
@@ -63,6 +64,7 @@ export const FEATURE_TIERS: Record<FeatureKey, SubscriptionTier> = {
   staff:           "pro",
   payroll:         "pro",
   invoice:         "pro",
+  tasks:           "pro",
   inventory:       "pro",
   reports:         "pro",
   users:           "pro",

@@ -35,6 +35,7 @@ import {
   Bike,
   Wallet,
   ScrollText,
+  CheckSquare,
 } from "lucide-react";
 import {
   Sidebar,
@@ -73,6 +74,7 @@ const allNavItems: NavItem[] = [
   { title: "Staff", icon: CalendarClock, value: "staff" },
   { title: "Payroll", icon: Wallet, value: "payroll" },
   { title: "Invoice", icon: ScrollText, value: "invoice" },
+  { title: "Tasks", icon: CheckSquare, value: "tasks" },
   { title: "Analytics", icon: BarChart3, value: "analytics" },
   { title: "Reports", icon: FileSpreadsheet, value: "reports" },
   { title: "Marketing", icon: Sparkles, value: "marketing" },
