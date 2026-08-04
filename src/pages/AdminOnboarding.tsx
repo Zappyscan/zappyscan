@@ -20,7 +20,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ImageCropDialog } from '@/components/admin/ImageCropDialog';
 
 const STEPS = [
-  { icon: Building2, label: 'Hotel Details', desc: 'Restaurant info' },
+  { icon: Building2, label: 'Restaurant Details', desc: 'Restaurant info' },
   { icon: Upload, label: 'Branding', desc: 'Logo & assets' },
   { icon: Palette, label: 'Menu Theme', desc: 'Colors & fonts' },
   { icon: Monitor, label: 'Menu Display', desc: 'Customer view' },
@@ -262,7 +262,7 @@ const AdminOnboarding = () => {
 
   const handleNext = async () => {
     if (step === 0 && !hotelForm.name) {
-      toast({ title: 'Hotel name required', variant: 'destructive' });
+      toast({ title: 'Restaurant name is required', variant: 'destructive' });
       return;
     }
     await saveStep(step);
@@ -375,10 +375,14 @@ const AdminOnboarding = () => {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-8"
         >
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center font-bold text-white text-lg">Z</div>
+            <span className="text-white font-bold text-lg">Zappy</span>
+          </div>
           <h1 className="text-2xl md:text-3xl font-bold text-white">
             Set Up Your Restaurant
           </h1>
-          <p className="text-white/50 mt-1 text-sm">Complete these steps to get your digital menu live</p>
+          <p className="text-white/50 mt-1 text-sm">Complete these steps to get started — takes less than 5 minutes</p>
         </motion.div>
 
         {/* Stepper */}
@@ -435,14 +439,14 @@ const AdminOnboarding = () => {
             transition={{ duration: 0.3, ease: 'easeOut' }}
           >
             {step === 0 && (
-              <GlassCard icon={Building2} title="Hotel Details" desc="Tell us about your restaurant.">
+              <GlassCard icon={Building2} title="Restaurant Details" desc="Tell us about your restaurant.">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-2">
-                    <Label className="text-sm font-semibold text-white/80">Hotel Name <span className="text-red-400">*</span></Label>
+                    <Label className="text-sm font-semibold text-white/80">Restaurant Name <span className="text-red-400">*</span></Label>
                     <Input
                       value={hotelForm.name}
                       onChange={(e) => setHotelForm({ ...hotelForm, name: e.target.value })}
-                      placeholder="Grand Palace"
+                      placeholder="My Restaurant"
                       className="bg-white/5 border-white/10 text-white placeholder:text-white/30 h-11 focus:border-orange-400/50"
                     />
                   </div>

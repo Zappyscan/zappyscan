@@ -3,54 +3,79 @@ import type { Database } from "@/integrations/supabase/types";
 type SubscriptionTier = Database["public"]["Enums"]["subscription_tier"];
 
 export type FeatureKey =
-  | "dashboard" | "menu" | "orders" | "kitchen" | "billing" | "qr-manager"
-  | "reviews" | "users" | "preview" | "settings"
-  | "coupons" | "ads" | "offers" | "exports" | "research"
-  | "promotions" | "branding" | "multi-outlet" | "inventory";
+  // ── Starter (free) ────────────────────────────────────────────────────────
+  | "dashboard" | "menu" | "orders" | "kitchen" | "billing" | "settings" | "reviews"
+  // ── Professional (pro) ────────────────────────────────────────────────────
+  | "tables" | "qr-manager" | "waiters" | "staff" | "inventory" | "reports"
+  | "users" | "preview" | "coupons" | "ads" | "offers" | "exports" | "research" | "promotions"
+  // ── Growth / Enterprise ───────────────────────────────────────────────────
+  | "online-orders" | "analytics" | "marketing" | "branding" | "multi-outlet";
 
 /** Human-readable labels for sidebar display */
 export const FEATURE_LABELS: Record<FeatureKey, string> = {
+  // Starter
   dashboard: "Dashboard",
   menu: "Menu",
   orders: "Orders",
   kitchen: "Kitchen",
   billing: "Billing",
+  settings: "Settings",
+  reviews: "Customer Reviews",
+  // Professional
+  tables: "Tables",
   "qr-manager": "QR Manager",
-  reviews: "Reviews",
+  waiters: "Waiters",
+  staff: "Staff",
+  inventory: "Inventory",
+  reports: "Reports",
   users: "Users",
   preview: "Preview Site",
-  settings: "Settings",
   coupons: "Coupons",
   ads: "Ads",
   offers: "Offers",
   exports: "Exports",
   research: "Research",
   promotions: "Promotions",
-  inventory: "Inventory",
+  // Growth / Enterprise
+  "online-orders": "Online Orders",
+  analytics: "Analytics",
+  marketing: "Marketing",
   branding: "Branding",
   "multi-outlet": "Multi-Outlet",
 };
 
 export const FEATURE_TIERS: Record<FeatureKey, SubscriptionTier> = {
-  dashboard: "free",
-  menu: "free",
-  orders: "free",
-  kitchen: "free",
-  billing: "free",
-  "qr-manager": "free",
-  reviews: "free",
-  users: "free",
-  preview: "free",
-  settings: "free",
-  coupons: "pro",
-  ads: "pro",
-  offers: "pro",
-  exports: "pro",
-  research: "pro",
-  promotions: "pro",
-  inventory: "pro",
-  branding: "enterprise",
-  "multi-outlet": "enterprise",
+  // ── Starter (free) — core POS billing features ───────────────────────────
+  dashboard:       "free",
+  menu:            "free",
+  orders:          "free",
+  kitchen:         "free",
+  billing:         "free",
+  settings:        "free",
+  reviews:         "free",
+
+  // ── Professional (pro) — full restaurant management ──────────────────────
+  tables:          "pro",
+  "qr-manager":    "pro",
+  waiters:         "pro",
+  staff:           "pro",
+  inventory:       "pro",
+  reports:         "pro",
+  users:           "pro",
+  preview:         "pro",
+  coupons:         "pro",
+  ads:             "pro",
+  offers:          "pro",
+  exports:         "pro",
+  research:        "pro",
+  promotions:      "pro",
+
+  // ── Growth / Enterprise — online & multi-branch ──────────────────────────
+  "online-orders": "enterprise",
+  analytics:       "enterprise",
+  marketing:       "enterprise",
+  branding:        "enterprise",
+  "multi-outlet":  "enterprise",
 };
 
 /** Features that the Super Admin can toggle per restaurant */
@@ -65,10 +90,11 @@ const TIER_RANK: Record<SubscriptionTier, number> = {
   enterprise: 2,
 };
 
+/** Maps DB tier values → plan names shown in the UI */
 const TIER_LABELS: Record<SubscriptionTier, string> = {
-  free: "Free",
-  pro: "Pro",
-  enterprise: "Business",
+  free:       "Starter",
+  pro:        "Professional",
+  enterprise: "Growth",
 };
 
 export type FeatureToggles = Record<string, boolean>;
